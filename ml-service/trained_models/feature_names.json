@@ -1,0 +1,20 @@
+[
+  "amount_log",
+  "hour_of_day",
+  "day_of_week",
+  "is_weekend",
+  "is_night",
+  "balance_ratio",
+  "amount_zscore",
+  "velocity_1h",
+  "velocity_24h",
+  "amount_sum_1h",
+  "distinct_merchants_24h",
+  "merchant_category_risk",
+  "country_mismatch",
+  "is_new_device",
+  "is_new_beneficiary",
+  "card_type_encoded",
+  "channel_encoded",
+  "amount"
+]
