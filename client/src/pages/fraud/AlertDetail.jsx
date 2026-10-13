@@ -19,7 +19,7 @@ import { InlineLoader }  from '@/components/ui/LoadingOverlay';
 import AlertNotesPanel   from './AlertNotesPanel';
 import { cn }            from '@/utils/cn';
 
-const MANAGE_ROLES = ['super_admin','admin','compliance_officer','fraud_analyst'];
+const MANAGE_ROLES = ['super_admin', 'fraud_analyst', 'branch_manager'];
 const fmtDate = (s) => s ? new Date(s).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' }) : '—';
 const fmtAmt  = (n,c='INR') => new Intl.NumberFormat('en-IN',{style:'currency',currency:c,maximumFractionDigits:2}).format(n??0);
 

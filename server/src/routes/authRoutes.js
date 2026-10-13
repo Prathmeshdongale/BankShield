@@ -18,6 +18,7 @@ import { Router }       from 'express';
 import rateLimit        from 'express-rate-limit';
 import { authLimiter }  from '../middleware/rateLimiter.js';
 import { authenticate, requireRoles } from '../middleware/authenticate.js';
+import { restrictBankingFromSuperAdmin } from '../middleware/bankingRestriction.js';
 import {
   validate,
   registerValidator,
@@ -77,12 +78,13 @@ const resetLimiter = rateLimit({
 /**
  * POST /api/auth/register
  * Admin-only — create a new user of any role.
+ * Allowed roles: super_admin, branch_manager, fraud_analyst, customer
  */
 router.post(
   '/register',
   authLimiter,
   authenticate,
-  requireRoles('super_admin', 'admin', 'branch_manager'),
+  requireRoles('super_admin'),
   ...registerValidator,
   validate,
   register

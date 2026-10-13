@@ -10,7 +10,7 @@
  * Examples:
  *   <ProtectedRoute />                        — any authenticated user
  *   <ProtectedRoute roles="fraud_analyst" />  — fraud analysts only
- *   <ProtectedRoute roles={['super_admin','admin']} />
+ *   <ProtectedRoute roles={['super_admin','branch_manager']} />
  *   <ProtectedRoute permissions="fraud:investigate" />
  */
 
@@ -42,9 +42,18 @@ const ProtectedRoute = ({
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Role guard
+  // Role guard - only 4 roles: super_admin, branch_manager, fraud_analyst, customer
   if (roles) {
     const allowed = Array.isArray(roles) ? roles : [roles];
+    const validRoles = ['super_admin', 'branch_manager', 'fraud_analyst', 'customer'];
+    
+    // Validate that requested roles are valid
+    const invalidRoles = allowed.filter(r => !validRoles.includes(r));
+    if (invalidRoles.length > 0) {
+      console.warn(`ProtectedRoute: Invalid roles requested: ${invalidRoles.join(', ')}`);
+      return <Navigate to="/unauthorized" replace />;
+    }
+    
     if (!allowed.includes(user.role)) {
       return <Navigate to="/unauthorized" replace />;
     }

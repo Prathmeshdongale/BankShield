@@ -1,174 +1,145 @@
 /**
- * Sidebar.jsx — Role-driven navigation sidebar.
+ * Sidebar.jsx — Role-based navigation sidebar.
  *
- * Nav items are filtered by the current user's role.
- * Collapses to icon-only on mobile (toggled by parent layout).
+ * Dynamically renders navigation items based on user role.
+ * Enforces platform vs. banking access separation.
  */
 
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard, ArrowLeftRight, ShieldAlert, Send,
-  Users, Building2, CreditCard, FileText, Bell,
-  AlertOctagon, ChevronRight, Zap, ClipboardList, UserCircle,
-  Home, ShieldCheck,
-} from 'lucide-react';
-import { cn }      from '@/utils/cn';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Badge }   from '@/components/ui/badge';
+import {
+  LayoutDashboard, Users, ShieldCheck, Activity,
+  CreditCard, TrendingUp, AlertTriangle, FileText,
+  Settings, Cpu, Lock, LogOut, UserCheck,
+  BarChart2, Clock, Search, Bell
+} from 'lucide-react';
+import { cn } from '@/utils/cn';
 
-// ── Role groups ───────────────────────────────────────────────────────────────
-const STAFF  = ['super_admin','admin','compliance_officer','fraud_analyst','branch_manager','teller'];
-const ANALYST= ['super_admin','admin','compliance_officer','fraud_analyst'];
-const MGMT   = ['super_admin','admin','branch_manager'];
-const FRONT  = ['super_admin','admin','compliance_officer','fraud_analyst','branch_manager','teller'];
+const NAVIGATION = {
+  customer: [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+    { id: 'accounts', label: 'My Accounts', icon: CreditCard, path: '/portal/accounts' },
+    { id: 'transactions', label: 'My Transactions', icon: TrendingUp, path: '/portal/transactions' },
+    { id: 'cards', label: 'My Cards', icon: Activity, path: '/portal/cards' },
+    { id: 'transfer', label: 'Transfers', icon: TrendingUp, path: '/transfer' },
+    { id: 'alerts', label: 'Fraud Alerts', icon: AlertTriangle, path: '/portal/alerts' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: '/notifications' },
+    { id: 'profile', label: 'My Profile', icon: UserCheck, path: '/profile' },
+    { id: 'logout', label: 'Logout', icon: LogOut, path: '/logout' },
+  ],
+  branch_manager: [
+    { id: 'dashboard', label: 'Branch Overview', icon: LayoutDashboard, path: '/' },
+    { id: 'customers', label: 'Branch Customers', icon: Users, path: '/branch/customers' },
+    { id: 'accounts', label: 'Accounts', icon: CreditCard, path: '/branch/accounts' },
+    { id: 'transactions', label: 'Transactions', icon: TrendingUp, path: '/branch/transactions' },
+    { id: 'reports', label: 'Branch Reports', icon: FileText, path: '/branch/reports' },
+    { id: 'fraud_alerts', label: 'Fraud Alerts', icon: AlertTriangle, path: '/fraud/alerts' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: '/notifications' },
+    { id: 'profile', label: 'My Profile', icon: UserCheck, path: '/profile' },
+    { id: 'logout', label: 'Logout', icon: LogOut, path: '/logout' },
+  ],
+  fraud_analyst: [
+    { id: 'dashboard', label: 'Fraud Dashboard', icon: LayoutDashboard, path: '/' },
+    { id: 'fraud_alerts', label: 'Fraud Alerts', icon: AlertTriangle, path: '/fraud/alerts' },
+    { id: 'investigations', label: 'Investigations', icon: Search, path: '/fraud/investigations' },
+    { id: 'ml_predictions', label: 'Risk Analysis', icon: Cpu, path: '/fraud/ml-predictions' },
+    { id: 'reports', label: 'Fraud Reports', icon: FileText, path: '/reports' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: '/notifications' },
+    { id: 'profile', label: 'My Profile', icon: UserCheck, path: '/profile' },
+    { id: 'logout', label: 'Logout', icon: LogOut, path: '/logout' },
+  ],
+  super_admin: [
+    { id: 'dashboard', label: 'System Overview', icon: LayoutDashboard, path: '/' },
+    { id: 'users', label: 'User Management', icon: Users, path: '/admin/users' },
+    { id: 'settings', label: 'System Settings', icon: Settings, path: '/admin/settings' },
+    { id: 'audit_logs', label: 'Security & Audit', icon: Lock, path: '/admin/audit-logs' },
+    { id: 'ml_status', label: 'ML Model Status', icon: Cpu, path: '/ml/status' },
+    { id: 'api_health', label: 'API & Health', icon: Activity, path: '/health' },
+    { id: 'logout', label: 'Logout', icon: LogOut, path: '/logout' },
+  ],
+};
 
-// ── Nav definitions ──────────────────────────────────────────────────────────
-// roles     : who can see this item (empty = every authenticated user)
-// hideFor   : hide this entire section when the user's role is in this list
-const NAV_ITEMS = [
-  {
-    section : 'Overview',
-    items   : [
-      { name: 'Dashboard',     path: '/',              icon: LayoutDashboard, roles: [] },
-    ],
-  },
-  // ── Staff / admin sections — hidden from pure customer accounts ────────────
-  {
-    section : 'Banking',
-    hideFor : ['customer'],
-    items   : [
-      { name: 'Accounts',      path: '/accounts',      icon: Building2,      roles: STAFF },
-      { name: 'Transactions',  path: '/transactions',  icon: ArrowLeftRight, roles: STAFF },
-      { name: 'Cards',         path: '/cards',         icon: CreditCard,     roles: STAFF },
-      { name: 'Transfer',      path: '/transfer',      icon: Send,           roles: STAFF },
-    ],
-  },
-  {
-    section : 'Fraud & Risk',
-    hideFor : ['customer'],
-    items   : [
-      { name: 'Fraud Alerts',   path: '/fraud/alerts',         icon: ShieldAlert,  roles: FRONT  },
-      { name: 'Investigations', path: '/fraud/investigations', icon: AlertOctagon, roles: ANALYST },
-    ],
-  },
-  {
-    section : 'People',
-    hideFor : ['customer'],
-    items   : [
-      { name: 'Customers', path: '/customers', icon: Users,    roles: FRONT },
-      { name: 'Branches',  path: '/branches',  icon: Building2,roles: MGMT  },
-    ],
-  },
-  {
-    section : 'Reporting',
-    hideFor : ['customer'],
-    items   : [
-      { name: 'Reports',   path: '/reports',    icon: FileText,    roles: STAFF  },
-      { name: 'Audit Logs',path: '/audit-logs', icon: ClipboardList,roles: ANALYST },
-    ],
-  },
-  // ── Customer portal — hidden from staff (they have the full admin views) ───
-  {
-    section : 'My Portal',
-    hideFor : STAFF,
-    items   : [
-      { name: 'Overview',        path: '/portal',              icon: Home,          roles: [] },
-      { name: 'My Accounts',     path: '/portal/accounts',     icon: Building2,     roles: [] },
-      { name: 'My Cards',        path: '/portal/cards',        icon: CreditCard,    roles: [] },
-      { name: 'My Transactions', path: '/portal/transactions', icon: ArrowLeftRight,roles: [] },
-      { name: 'Security Alerts', path: '/portal/alerts',       icon: ShieldCheck,   roles: [] },
-    ],
-  },
-  // ── Always visible ─────────────────────────────────────────────────────────
-  {
-    section : 'Account',
-    items   : [
-      { name: 'Notifications', path: '/notifications', icon: Bell,       roles: [] },
-      { name: 'Profile',       path: '/profile',       icon: UserCircle, roles: [] },
-    ],
-  },
-];
+const Sidebar = ({ className }) => {
+  const { user, logout, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(true);
+  
+  // Determine navigation based on role
+  const navItems = user ? NAVIGATION[user.role] || [] : [];
+  
+  const handleLogout = async () => {
+    await logout(true);
+    navigate('/login');
+  };
 
-export const Sidebar = ({ collapsed = false }) => {
-  const { user } = useAuth();
-  const role     = user?.role ?? '';
-
-  const isVisible = (item) =>
-    item.roles.length === 0 || item.roles.includes(role);
+  if (!isAuthenticated) return null;
 
   return (
-    <aside
-      className={cn(
-        'flex h-[calc(100vh-4rem)] flex-col border-r border-gray-200 bg-white',
-        'dark:border-gray-800 dark:bg-gray-900',
-        'transition-all duration-200',
-        collapsed ? 'w-16' : 'w-64'
-      )}
-    >
-      {/* Nav sections */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-5">
-        {NAV_ITEMS.map(section => {
-          // Hide entire section if user role is in hideFor
-          if (section.hideFor && section.hideFor.includes(role)) return null;
-
-          const visible = section.items.filter(isVisible);
-          if (!visible.length) return null;
-          return (
-            <div key={section.section}>
-              {!collapsed && (
-                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-                  {section.section}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {visible.map(item => {
-                  const Icon = item.icon;
-                  return (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      end={item.path === '/'}
-                      className={({ isActive }) =>
-                        cn(
-                          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                          isActive
-                            ? 'bg-blue-600 text-white shadow-sm'
-                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100',
-                          collapsed && 'justify-center'
-                        )
-                      }
-                      title={collapsed ? item.name : undefined}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.name}</span>}
-                      {!collapsed && item.badge && (
-                        <Badge variant="destructive" className="ml-auto text-[10px] px-1.5 py-0">
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </NavLink>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </nav>
-
-      {/* ML status footer */}
-      {!collapsed && (
-        <div className="m-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/40">
-          <div className="flex items-center gap-2 text-xs font-semibold text-blue-900 dark:text-blue-300">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <Zap className="h-3 w-3" />
-            XGBoost Engine Active
+    <aside className={cn(
+      'fixed left-0 top-0 z-30 flex h-full flex-col border-r bg-white transition-transform duration-300 dark:border-gray-800 dark:bg-gray-900',
+      isOpen ? 'w-64' : 'w-20',
+      className
+    )}>
+      {/* Logo */}
+      <div className="flex items-center justify-center border-b border-gray-100 p-4 dark:border-gray-800">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <ShieldCheck className="h-5 w-5" />
           </div>
-          <p className="mt-1 text-[11px] text-blue-700 dark:text-blue-400">
-            Real-time risk scoring enabled.
-          </p>
+          {isOpen && (
+            <span className="text-lg font-bold text-gray-900 dark:text-white">
+              Bank<span className="text-blue-600">Shield</span>
+            </span>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-4">
+        <ul className="space-y-1 px-2">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            
+            if (item.id === 'logout') {
+              return (
+                <li key={item.id}>
+                  <button
+                    onClick={handleLogout}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                      isActive 
+                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                        : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
+                    )}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {isOpen && <span>{item.label}</span>}
+                  </button>
+                </li>
+              );
+            }
+
+            return (
+              <li key={item.id}>
+                <Link
+                  to={item.path}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    isActive 
+                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
+                  )}
+                >
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  {isOpen && <span>{item.label}</span>}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </aside>
   );
 };

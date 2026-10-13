@@ -21,15 +21,12 @@
  *   iat, exp, iss, aud
  * }
  *
- * RBAC matrix (from schema seeds — 7 roles, 34 permission codes):
+ * RBAC matrix (4 roles):
  *
- *   super_admin        — all 34 permissions
- *   admin              — 32 permissions (no system:seed / system:migrate)
- *   compliance_officer — audit + fraud + KYC + read-only banking
- *   fraud_analyst      — fraud full + read-only banking + audit:read
- *   branch_manager     — branch ops + customer onboarding + teller oversight
- *   teller             — customers/accounts/transactions read+create
- *   customer           — own accounts/transactions/cards + reports:read
+ *   super_admin        — platform administration: users, system config, audit logs
+ *   branch_manager     — branch operations: customers, accounts, fraud review
+ *   fraud_analyst      — fraud investigations: alerts, cases, ML predictions
+ *   customer           — own accounts, transactions, cards, reporting
  */
 
 import jwt           from 'jsonwebtoken';
@@ -257,14 +254,14 @@ export const requireRoles = (...roles) => (req, res, next) => {
 /**
  * isSelf(paramName = 'id')
  * Ensures the authenticated user is only accessing/modifying their own resource.
- * Admins and super_admins bypass this check.
+ * Branch managers and super_admins bypass this check.
  */
 export const isSelf = (paramName = 'id') => (req, res, next) => {
   if (!req.user) {
     return failure(res, 'Authentication required.', 401);
   }
 
-  const bypassRoles = ['super_admin', 'admin'];
+  const bypassRoles = ['super_admin', 'branch_manager'];
   if (bypassRoles.includes(req.user.role)) return next();
 
   const resourceId = req.params[paramName];

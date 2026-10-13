@@ -53,45 +53,32 @@ const SALT_ROUNDS = 12;
 // ============================================================================
 
 /**
- * 7 platform roles aligned with the role_name enum in schema.sql
- * Hierarchy: super_admin > admin > compliance_officer >
- *            fraud_analyst > branch_manager > teller > customer
+ * 4 platform roles for the restructured BankShield modules:
+ * - customer: Self-service banking for registered users
+ * - branch_manager: Branch operations and frontline oversight
+ * - fraud_analyst: Fraud investigation and ML predictions
+ * - super_admin: Platform and user management (limited banking access)
  */
 const ROLES = [
   {
     name        : 'super_admin',
     display_name: 'Super Administrator',
-    description : 'Full unrestricted access to all platform resources and configurations.',
-  },
-  {
-    name        : 'admin',
-    display_name: 'Administrator',
-    description : 'Platform-wide administration: user management, branch ops, reporting.',
-  },
-  {
-    name        : 'compliance_officer',
-    display_name: 'Compliance Officer',
-    description : 'Oversees regulatory compliance, KYC review, AML monitoring, and audit logs.',
-  },
-  {
-    name        : 'fraud_analyst',
-    display_name: 'Fraud Analyst',
-    description : 'Investigates fraud alerts, reviews ML predictions, manages fraud cases.',
+    description : 'Platform administration: user management, system config, audit logs. No routine banking access.',
   },
   {
     name        : 'branch_manager',
     display_name: 'Branch Manager',
-    description : 'Manages branch-level operations, customer onboarding, and teller oversight.',
+    description : 'Branch operations: customer onboarding, account management, fraud review.',
   },
   {
-    name        : 'teller',
-    display_name: 'Bank Teller',
-    description : 'Front-line staff: process deposits, withdrawals, and basic account queries.',
+    name        : 'fraud_analyst',
+    display_name: 'Fraud Analyst',
+    description : 'Fraud investigation: alert triage, case management, ML prediction review.',
   },
   {
     name        : 'customer',
     display_name: 'Customer',
-    description : 'Registered bank customer with access to personal accounts and transactions.',
+    description : 'Registered bank customer with access to personal accounts, transactions, and cards.',
   },
 ];
 
@@ -139,6 +126,8 @@ const PERMISSIONS = [
   { code: 'fraud:investigate',    module: 'fraud',        description: 'Open and manage fraud investigations'  },
   { code: 'fraud:add_notes',      module: 'fraud',        description: 'Add analyst notes to cases'            },
   { code: 'fraud:view_ml',        module: 'fraud',        description: 'View ML prediction scores and features'},
+  { code: 'fraud:report',         module: 'fraud',        description: 'Report suspicious transactions'        },
+  { code: 'fraud:dispute',        module: 'fraud',        description: 'Dispute flagged transactions'          },
 
   // ── reports ────────────────────────────────────────────────────────────
   { code: 'reports:read',         module: 'reports',      description: 'View generated reports'                },
@@ -156,32 +145,27 @@ const PERMISSIONS = [
 ];
 
 /**
- * Role → permissions mapping.
- * super_admin gets everything; each lower role gets a subset.
+ * Role → permissions mapping for 4-role structure.
+ * super_admin gets platform administration only (no routine banking).
+ * branch_manager gets branch operations + fraud review.
+ * fraud_analyst gets investigation tools + read-only banking.
+ * customer gets own accounts + reporting functions.
  */
 const ROLE_PERMISSIONS = {
-  super_admin: PERMISSIONS.map((p) => p.code),   // all
-
-  admin: [
+  super_admin: [
     'users:read','users:create','users:update','users:delete','users:manage_roles',
-    'customers:read','customers:create','customers:update','customers:kyc_verify',
-    'accounts:read','accounts:create','accounts:update','accounts:freeze','accounts:close',
-    'transactions:read','transactions:create','transactions:reverse','transactions:export',
-    'cards:read','cards:block','cards:manage_limits',
-    'fraud:read_alerts','fraud:manage_alerts','fraud:investigate','fraud:add_notes','fraud:view_ml',
-    'reports:read','reports:create','reports:export',
     'audit:read','audit:export',
+    'system:config','system:seed','system:migrate',
   ],
 
-  compliance_officer: [
-    'users:read',
-    'customers:read','customers:kyc_verify',
-    'accounts:read','accounts:freeze',
-    'transactions:read','transactions:export',
-    'cards:read',
-    'fraud:read_alerts','fraud:manage_alerts','fraud:investigate','fraud:add_notes','fraud:view_ml',
-    'reports:read','reports:create','reports:export',
-    'audit:read','audit:export',
+  branch_manager: [
+    'customers:read','customers:create','customers:update','customers:kyc_verify',
+    'accounts:read','accounts:create','accounts:update','accounts:freeze',
+    'transactions:read','transactions:create',
+    'cards:read','cards:block',
+    'fraud:read_alerts','fraud:manage_alerts','fraud:report',
+    'reports:read','reports:create',
+    'audit:read',
   ],
 
   fraud_analyst: [
@@ -190,27 +174,9 @@ const ROLE_PERMISSIONS = {
     'accounts:read',
     'transactions:read',
     'cards:read',
-    'fraud:read_alerts','fraud:manage_alerts','fraud:investigate','fraud:add_notes','fraud:view_ml',
+    'fraud:read_alerts','fraud:manage_alerts','fraud:investigate','fraud:add_notes','fraud:view_ml','fraud:report','fraud:dispute',
     'reports:read','reports:create',
     'audit:read',
-  ],
-
-  branch_manager: [
-    'users:read','users:create','users:update',
-    'customers:read','customers:create','customers:update','customers:kyc_verify',
-    'accounts:read','accounts:create','accounts:update','accounts:freeze',
-    'transactions:read','transactions:create',
-    'cards:read','cards:block',
-    'fraud:read_alerts',
-    'reports:read','reports:create',
-    'audit:read',
-  ],
-
-  teller: [
-    'customers:read',
-    'accounts:read',
-    'transactions:read','transactions:create',
-    'cards:read',
   ],
 
   customer: [
@@ -218,6 +184,7 @@ const ROLE_PERMISSIONS = {
     'transactions:read','transactions:create',
     'cards:read',
     'reports:read',
+    'fraud:report','fraud:dispute',
   ],
 };
 
@@ -232,6 +199,37 @@ const SUPER_ADMIN = {
   first_name : 'Super',
   last_name  : 'Admin',
   role_name  : 'super_admin',
+};
+
+/**
+ * Default passwords for 4 roles (development only).
+ * For production, set individual passwords via environment variables.
+ */
+const ROLE_USERS = {
+  super_admin: {
+    email: 'superadmin@bankshield.internal',
+    password: process.env.SUPER_ADMIN_PASSWORD || 'SuperAdmin@2024!',
+    first_name: 'Super',
+    last_name: 'Admin',
+  },
+  branch_manager: {
+    email: 'manager@bankshield.internal',
+    password: process.env.BRANCH_MANAGER_PASSWORD || 'BranchManager@2024!',
+    first_name: 'Branch',
+    last_name: 'Manager',
+  },
+  fraud_analyst: {
+    email: 'fraud@bankshield.internal',
+    password: process.env.FRAUD_ANALYST_PASSWORD || 'FraudAnalyst@2024!',
+    first_name: 'Fraud',
+    last_name: 'Analyst',
+  },
+  customer: {
+    email: 'customer@bankshield.internal',
+    password: process.env.CUSTOMER_PASSWORD || 'Customer@2024!',
+    first_name: 'Customer',
+    last_name: 'User',
+  },
 };
 
 // ============================================================================
@@ -373,6 +371,58 @@ async function seedSuperAdmin(client) {
   );
 }
 
+async function seedRoleUsers(client) {
+  log.info('Seeding users for all roles…');
+  
+  const { rows: roleRows } = await client.query('SELECT id, name FROM roles');
+  const roleMap = new Map(roleRows.map((r) => [r.name, r.id]));
+  
+  let created = 0;
+  let updated = 0;
+
+  await client.query('BEGIN');
+  try {
+    for (const [roleName, userData] of Object.entries(ROLE_USERS)) {
+      const roleId = roleMap.get(roleName);
+      if (!roleId) {
+        log.warn(`Role not found: ${roleName} — skipping user creation`);
+        continue;
+      }
+
+      const password_hash = await bcrypt.hash(userData.password, SALT_ROUNDS);
+      
+      const { rowCount } = await client.query(
+        `INSERT INTO users
+           (email, password_hash, first_name, last_name, role_id,
+            is_active, is_verified, password_changed_at)
+         VALUES ($1, $2, $3, $4, $5, TRUE, TRUE, NOW())
+         ON CONFLICT (email) DO UPDATE
+           SET password_hash        = EXCLUDED.password_hash,
+               first_name           = EXCLUDED.first_name,
+               last_name            = EXCLUDED.last_name,
+               role_id              = EXCLUDED.role_id,
+               is_active            = TRUE,
+               is_verified          = TRUE,
+               password_changed_at  = NOW(),
+               updated_at           = NOW()
+         RETURNING id`,
+        [userData.email, password_hash, userData.first_name, userData.last_name, roleId]
+      );
+
+      if (rowCount > 0) {
+        created++;
+        log.ok(`Created ${roleName}: ${userData.email}`);
+      } else {
+        updated++;
+        log.info(`Updated ${roleName}: ${userData.email}`);
+      }
+    }
+    await client.query('COMMIT');
+  } catch (err) { await client.query('ROLLBACK'); throw err; }
+
+  log.ok(`Role users: ${created} created, ${updated} updated`);
+}
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -430,6 +480,7 @@ async function main() {
     await withClient(pool, (c) => seedPermissions(c));
     await withClient(pool, (c) => seedRolePermissions(c));
     await withClient(pool, (c) => seedSuperAdmin(c));
+    await withClient(pool, (c) => seedRoleUsers(c));
 
     log.title('Seeding complete ✔');
     console.log('');
@@ -437,6 +488,11 @@ async function main() {
     console.log(`  Password env var     : SUPER_ADMIN_PASSWORD`);
     console.log(`  Roles seeded         : ${ROLES.length}`);
     console.log(`  Permissions seeded   : ${PERMISSIONS.length}`);
+    console.log('');
+    console.log('  Role Users:');
+    for (const [role, data] of Object.entries(ROLE_USERS)) {
+      console.log(`    ${role}: ${data.email}  (password env: ${role.toUpperCase()}_PASSWORD)`);
+    }
     console.log('');
   } catch (err) {
     log.error(`Seeding failed: ${err.message}`);
