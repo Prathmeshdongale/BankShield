@@ -49,7 +49,8 @@ const router = Router();
 /** Refresh: 30 attempts / 15 min (more lenient than login — tokens expire anyway) */
 const refreshLimiter = rateLimit({
   windowMs     : 15 * 60 * 1000,
-  max          : 30,
+  // FIXED: Increased max attempts to allow multiple refresh attempts during development/use
+  max          : process.env.NODE_ENV === 'production' ? 30 : 500,
   standardHeaders: true,
   legacyHeaders : false,
   message      : { success: false, error: 'Too many token refresh attempts.' },
@@ -58,7 +59,8 @@ const refreshLimiter = rateLimit({
 /** Forgot-password: 5 attempts / 15 min (prevents reset-link flooding) */
 const forgotLimiter = rateLimit({
   windowMs     : 15 * 60 * 1000,
-  max          : process.env.NODE_ENV === 'production' ? 5 : 30,
+  // FIXED: Increased max attempts to allow multiple reset requests during development/use
+  max          : process.env.NODE_ENV === 'production' ? 5 : 500,
   standardHeaders: true,
   legacyHeaders : false,
   message      : { success: false, error: 'Too many password reset requests.' },
@@ -67,7 +69,8 @@ const forgotLimiter = rateLimit({
 /** Reset-password: 10 attempts / 15 min */
 const resetLimiter = rateLimit({
   windowMs     : 15 * 60 * 1000,
-  max          : process.env.NODE_ENV === 'production' ? 10 : 50,
+  // FIXED: Increased max attempts to allow multiple reset attempts during development/use
+  max          : process.env.NODE_ENV === 'production' ? 10 : 500,
   standardHeaders: true,
   legacyHeaders : false,
   message      : { success: false, error: 'Too many password reset attempts.' },

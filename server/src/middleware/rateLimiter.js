@@ -12,14 +12,13 @@ export const apiLimiter = rateLimit({
 });
 
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  // Stricter in production; relaxed in dev/test to allow smoke tests
-  max: process.env.NODE_ENV === 'production' ? 10 : 50,
+  windowMs: 60 * 60 * 1000, // 60 minutes (increased for development)
+  max: process.env.NODE_ENV === 'production' ? 10 : 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
-    error: 'Too many authentication attempts, please try again later.',
+    error: 'Too many authentication attempts. Please try again later.',
   },
 });
 

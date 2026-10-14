@@ -58,13 +58,25 @@ export const AppLayout = () => {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {isSuperAdmin ? (
-          <SuperAdminSidebar className={cn(sidebarOpen ? 'translate-x-0' : '-translate-x-64')} />
-        ) : (
-          <Sidebar className={cn(sidebarOpen ? 'translate-x-0' : '-translate-x-64', 'transition-transform duration-300')} />
-        )}
+        {/* Sidebar - positioned absolutely to the left */}
+        <div className={cn(
+          'fixed left-0 top-0 z-30 h-full transition-all duration-300 ease-in-out border-r bg-white dark:border-gray-800 dark:bg-gray-900',
+          sidebarOpen ? 'w-64' : 'w-20'
+        )}>
+          {isSuperAdmin ? (
+            <SuperAdminSidebar className="h-full" />
+          ) : (
+            <Sidebar className="h-full" />
+          )}
+        </div>
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        {/* Main content area - shifts right when sidebar is open */}
+        <main 
+          className={cn(
+            'flex-1 overflow-y-auto p-6 lg:p-8 transition-all duration-300 ease-in-out',
+            sidebarOpen ? 'ml-64' : 'ml-20'
+          )}
+        >
           <Outlet />
         </main>
       </div>
