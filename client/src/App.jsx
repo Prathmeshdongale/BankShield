@@ -47,7 +47,6 @@ const SystemSettings  = lazy(() => import('@/pages/admin/SystemSettings'));
 const CustomerHome      = lazy(() => import('@/pages/portal/CustomerHome'));
 const MyAccounts        = lazy(() => import('@/pages/portal/MyAccounts'));
 const MyAccountDetail   = lazy(() => import('@/pages/portal/MyAccountDetail'));
-const MyCards           = lazy(() => import('@/pages/portal/MyCards'));
 const MyTransactions    = lazy(() => import('@/pages/portal/MyTransactions'));
 const MyAlerts          = lazy(() => import('@/pages/portal/MyAlerts'));
 
@@ -154,11 +153,10 @@ function App() {
                     <Route path="fraud/investigations" element={<Investigations />} />
                   </Route>
 
-                  {/* Customer portal - all authenticated users */}
+                  {/* Customer portal - own accounts & transactions only */}
                   <Route path="portal"                element={<CustomerHome />} />
                   <Route path="portal/accounts"       element={<MyAccounts />} />
                   <Route path="portal/accounts/:id"   element={<MyAccountDetail />} />
-                  <Route path="portal/cards"          element={<MyCards />} />
                   <Route path="portal/transactions"   element={<MyTransactions />} />
                   <Route path="portal/alerts"         element={<MyAlerts />} />
                 </Route>

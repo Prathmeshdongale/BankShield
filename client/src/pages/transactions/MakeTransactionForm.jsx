@@ -14,7 +14,7 @@ import { zodResolver }   from '@hookform/resolvers/zod';
 import { z }             from 'zod';
 import {
   ArrowLeftRight, Loader2, CheckCircle2, AlertTriangle,
-  Building2, CreditCard, Smartphone, Globe, Landmark,
+  CreditCard, Smartphone,
 } from 'lucide-react';
 import toast                   from 'react-hot-toast';
 import { transactionService }  from '@/services/transactionService';
@@ -26,15 +26,11 @@ import { FieldError, ErrorMessage } from '@/components/ui/ErrorMessage';
 import { StatusBadge }         from '@/components/ui/StatusBadge';
 import { cn }                  from '@/utils/cn';
 
-// ── Transaction types ─────────────────────────────────────────────────────────
+// ── Transaction types — transfer, card-payment, UPI only ─────────────────────
 const TYPES = [
-  { id: 'deposit',      label: 'Deposit',           icon: Building2,      desc: 'Credit funds from external source (branch, NEFT, RTGS)' },
-  { id: 'withdraw',     label: 'Withdrawal',         icon: Landmark,       desc: 'Cash withdrawal from account (branch or ATM)' },
-  { id: 'transfer',     label: 'Fund Transfer',      icon: ArrowLeftRight, desc: 'Move funds between accounts (web, UPI, NEFT…)' },
+  { id: 'transfer',     label: 'Fund Transfer',      icon: ArrowLeftRight, desc: 'Move funds between accounts (web, UPI, NEFT, RTGS…)' },
   { id: 'card-payment', label: 'Card Payment (POS)', icon: CreditCard,     desc: 'Point-of-sale card payment' },
   { id: 'upi',          label: 'UPI Payment',        icon: Smartphone,     desc: 'Unified Payment Interface transfer' },
-  { id: 'atm',          label: 'ATM Withdrawal',     icon: Landmark,       desc: 'ATM cash withdrawal (card required)' },
-  { id: 'online',       label: 'Online Payment',     icon: Globe,          desc: 'Web / mobile card payment' },
 ];
 
 // ── Shared field definitions ───────────────────────────────────────────────────
@@ -45,25 +41,8 @@ const optStrField   = z.string().trim().optional().or(z.literal(''));
 const currencyField = z.string().trim().length(3, 'Currency must be a 3-letter code.').optional().default('INR');
 const idemField     = z.string().trim().min(1).max(128).optional().or(z.literal(''));
 
-// ── Per-type Zod schemas (only required fields enforced) ──────────────────────
+// ── Per-type Zod schemas ──────────────────────────────────────────────────────
 const SCHEMAS = {
-  deposit: z.object({
-    accountId     : uuidField('Account ID'),
-    amount        : amountField,
-    currency      : currencyField,
-    channel       : z.string().optional(),
-    description   : optStrField,
-    idempotencyKey: idemField,
-  }),
-  withdraw: z.object({
-    accountId     : uuidField('Account ID'),
-    amount        : amountField,
-    currency      : currencyField,
-    channel       : z.string().optional(),
-    cardId        : optUuidField('Card ID'),
-    description   : optStrField,
-    idempotencyKey: idemField,
-  }),
   transfer: z.object({
     sourceAccountId     : uuidField('Source Account ID'),
     destinationAccountId: uuidField('Destination Account ID'),
@@ -95,25 +74,6 @@ const SCHEMAS = {
     upiVpa              : optStrField,
     description         : optStrField,
     idempotencyKey      : idemField,
-  }),
-  atm: z.object({
-    accountId     : uuidField('Account ID'),
-    cardId        : uuidField('Card ID'),
-    amount        : amountField,
-    currency      : currencyField,
-    locationCity  : optStrField,
-    idempotencyKey: idemField,
-  }),
-  online: z.object({
-    accountId       : uuidField('Account ID'),
-    cardId          : uuidField('Card ID'),
-    amount          : amountField,
-    currency        : currencyField,
-    channel         : z.string().optional(),
-    merchantName    : optStrField,
-    merchantCategory: optStrField,
-    description     : optStrField,
-    idempotencyKey  : idemField,
   }),
 };
 
@@ -213,23 +173,19 @@ const ResultCard = ({ result, onReset }) => {
 
 // ── Channel options per type ──────────────────────────────────────────────────
 const CHANNEL_OPTIONS = {
-  deposit      : ['branch', 'neft', 'rtgs', 'imps', 'api'],
-  withdraw     : ['branch', 'atm', 'api'],
   transfer     : ['web', 'mobile', 'upi', 'neft', 'rtgs', 'imps', 'branch', 'api'],
-  'card-payment': ['pos', 'web', 'mobile', 'atm', 'upi', 'api'],
-  online       : ['web', 'mobile'],
+  'card-payment': ['pos', 'web', 'mobile', 'upi', 'api'],
 };
 
 // ── Which fields to show per type ─────────────────────────────────────────────
 const SHOW = {
-  accountId      : new Set(['deposit', 'withdraw', 'card-payment', 'atm', 'online']),
+  accountId      : new Set(['card-payment']),
   sourceAccountId: new Set(['transfer', 'upi']),
   destAccountId  : new Set(['transfer', 'upi']),
-  cardId         : new Set(['card-payment', 'atm', 'online']),
-  channel        : new Set(['deposit', 'withdraw', 'transfer', 'card-payment', 'online']),
+  cardId         : new Set(['card-payment']),
+  channel        : new Set(['transfer', 'card-payment']),
   upiVpa         : new Set(['upi']),
-  merchant       : new Set(['card-payment', 'online']),
-  locationCity   : new Set(['atm']),
+  merchant       : new Set(['card-payment']),
 };
 
 // ── MakeTransactionForm ───────────────────────────────────────────────────────
@@ -242,7 +198,7 @@ const MakeTransactionForm = () => {
   const type = TYPES.find(t => t.id === txnType);
 
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } =
-    useForm({ resolver: zodResolver(SCHEMAS[txnType] ?? SCHEMAS.transfer) });
+    useForm({ resolver: zodResolver(SCHEMAS[txnType] ?? SCHEMAS['transfer']) });
 
   const switchType = (id) => {
     setTxnType(id);
@@ -256,19 +212,6 @@ const MakeTransactionForm = () => {
     try {
       let res;
       switch (txnType) {
-        case 'deposit':
-          res = await transactionService.deposit({
-            accountId: d.accountId, amount: d.amount, currency: d.currency,
-            channel: d.channel || 'branch', description: d.description,
-            idempotencyKey: d.idempotencyKey,
-          });
-          break;
-        case 'withdraw':
-          res = await transactionService.withdraw({
-            accountId: d.accountId, amount: d.amount, currency: d.currency,
-            channel: d.channel || 'branch', cardId: d.cardId, description: d.description,
-          });
-          break;
         case 'transfer':
           res = await transactionService.transfer({
             sourceAccountId: d.sourceAccountId, destinationAccountId: d.destinationAccountId,
@@ -287,19 +230,6 @@ const MakeTransactionForm = () => {
           res = await transactionService.upiPayment({
             sourceAccountId: d.sourceAccountId, destinationAccountId: d.destinationAccountId,
             amount: d.amount, currency: d.currency, upiVpa: d.upiVpa, description: d.description,
-          });
-          break;
-        case 'atm':
-          res = await transactionService.atmWithdrawal({
-            accountId: d.accountId, cardId: d.cardId, amount: d.amount,
-            currency: d.currency, locationCity: d.locationCity,
-          });
-          break;
-        case 'online':
-          res = await transactionService.onlinePayment({
-            accountId: d.accountId, cardId: d.cardId, amount: d.amount, currency: d.currency,
-            channel: d.channel || 'web', merchantName: d.merchantName,
-            merchantCategory: d.merchantCategory, description: d.description,
           });
           break;
         default:
@@ -468,14 +398,6 @@ const MakeTransactionForm = () => {
                     className="dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
                 </F>
               </div>
-            )}
-
-            {/* ATM location */}
-            {SHOW.locationCity.has(txnType) && (
-              <F label="ATM Location City" error={errors.locationCity}>
-                <Input placeholder="e.g. Mumbai" {...register('locationCity')}
-                  className="dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
-              </F>
             )}
 
             {/* Description */}

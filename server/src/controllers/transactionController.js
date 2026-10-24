@@ -17,13 +17,9 @@
  */
 
 import {
-  depositService,
-  withdrawService,
   transferService,
   cardPaymentService,
   upiPaymentService,
-  atmWithdrawalService,
-  onlinePaymentService,
   getTransactionService,
   listTransactionsService,
 } from '../services/transactionService.js';
@@ -99,30 +95,6 @@ const txnResponse = (res, result, msg) =>
 
 // ── handlers ──────────────────────────────────────────────────────────────────
 
-/** POST /api/transactions/deposit */
-export const deposit = async (req, res) => {
-  try {
-    const { accountId, amount, currency, channel, description, idempotencyKey } = req.body;
-    const result = await depositService(
-      { accountId, amount, currency, channel, description, idempotencyKey },
-      getMeta(req)
-    );
-    return txnResponse(res, result, 'Deposit processed.');
-  } catch (err) { return handleErr(err, res); }
-};
-
-/** POST /api/transactions/withdraw */
-export const withdraw = async (req, res) => {
-  try {
-    const { accountId, amount, currency, channel, description, cardId, idempotencyKey } = req.body;
-    const result = await withdrawService(
-      { accountId, amount, currency, channel, description, cardId, idempotencyKey },
-      getMeta(req)
-    );
-    return txnResponse(res, result, 'Withdrawal processed.');
-  } catch (err) { return handleErr(err, res); }
-};
-
 /** POST /api/transactions/transfer */
 export const transfer = async (req, res) => {
   try {
@@ -165,32 +137,6 @@ export const upiPayment = async (req, res) => {
   } catch (err) { return handleErr(err, res); }
 };
 
-/** POST /api/transactions/atm */
-export const atmWithdrawal = async (req, res) => {
-  try {
-    const { accountId, cardId, amount, currency, locationCity, idempotencyKey } = req.body;
-    const result = await atmWithdrawalService(
-      { accountId, cardId, amount, currency, locationCity, idempotencyKey },
-      getMeta(req)
-    );
-    return txnResponse(res, result, 'ATM withdrawal processed.');
-  } catch (err) { return handleErr(err, res); }
-};
-
-/** POST /api/transactions/online */
-export const onlinePayment = async (req, res) => {
-  try {
-    const { accountId, cardId, amount, currency, channel,
-            merchantName, merchantCategory, description, idempotencyKey } = req.body;
-    const result = await onlinePaymentService(
-      { accountId, cardId, amount, currency, channel,
-        merchantName, merchantCategory, description, idempotencyKey },
-      getMeta(req)
-    );
-    return txnResponse(res, result, 'Online payment processed.');
-  } catch (err) { return handleErr(err, res); }
-};
-
 /** GET /api/transactions/:idOrRef */
 export const getTransaction = async (req, res) => {
   try {
@@ -211,7 +157,7 @@ export const listTransactions = async (req, res) => {
 export const initiateTransfer = transfer;
 
 export default {
-  deposit, withdraw, transfer, cardPayment, upiPayment,
-  atmWithdrawal, onlinePayment, getTransaction, listTransactions,
+  transfer, cardPayment, upiPayment,
+  getTransaction, listTransactions,
   initiateTransfer,
 };

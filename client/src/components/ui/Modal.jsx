@@ -1,16 +1,11 @@
 /**
- * Modal.jsx — Accessible overlay dialog.
- * Usage:
- *   <Modal open={show} onClose={() => setShow(false)} title="Edit Customer">
- *     …content…
- *   </Modal>
+ * Modal.jsx — Accessible overlay dialog, fully dark-mode aware.
  */
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 export const Modal = ({ open, onClose, title, children, size = 'md', className }) => {
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const handler = (e) => { if (e.key === 'Escape') onClose(); };
@@ -20,12 +15,7 @@ export const Modal = ({ open, onClose, title, children, size = 'md', className }
 
   if (!open) return null;
 
-  const sizes = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-  };
+  const sizes = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
 
   return (
     <div
@@ -36,28 +26,39 @@ export const Modal = ({ open, onClose, title, children, size = 'md', className }
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm dark:bg-black/75"
         onClick={onClose}
         aria-hidden="true"
       />
       {/* Panel */}
       <div className={cn(
-        'relative w-full rounded-2xl border border-gray-200 bg-white shadow-2xl',
-        'dark:border-gray-700 dark:bg-gray-900',
+        'relative w-full rounded-2xl shadow-2xl',
+        'border border-slate-200 bg-white',
+        'dark:border-slate-700/60 dark:bg-gray-900',
         'max-h-[90vh] overflow-y-auto',
         sizes[size] ?? sizes.md,
         className
       )}>
         {/* Header */}
         {title && (
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-            <h2 id="modal-title" className="text-base font-semibold text-gray-900 dark:text-white">
+          <div className={cn(
+            'flex items-center justify-between px-6 py-4',
+            'border-b border-slate-100 dark:border-slate-800'
+          )}>
+            <h2
+              id="modal-title"
+              className="text-base font-semibold text-slate-900 dark:text-slate-100"
+            >
               {title}
             </h2>
             <button
               onClick={onClose}
               aria-label="Close"
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+              className={cn(
+                'rounded-lg p-1.5 transition-colors',
+                'text-slate-400 hover:bg-slate-100 hover:text-slate-600',
+                'dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300'
+              )}
             >
               <X className="h-4 w-4" />
             </button>

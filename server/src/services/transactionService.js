@@ -425,60 +425,7 @@ const _executeTransaction = async ({
 // PUBLIC SERVICE FUNCTIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── 1. DEPOSIT ────────────────────────────────────────────────────────────────
-/**
- * Credit funds into a single account (no source account).
- * Channels: branch, neft, rtgs, api
- */
-export const depositService = async ({
-  accountId, amount, currency = 'INR', channel = 'branch',
-  description = null, metadata = null, idempotencyKey = null,
-}, meta = {}) => {
-  const ALLOWED_CHANNELS = ['branch', 'neft', 'rtgs', 'imps', 'api'];
-  if (!ALLOWED_CHANNELS.includes(channel)) throw mkErr('INVALID_CHANNEL', 400);
-
-  return _executeTransaction({
-    idempotencyKey,
-    idempotencyAcct: accountId,
-    operation: 'deposit',
-    destinationAccountId: accountId,
-    amount, currency,
-    txnType: 'deposit',
-    channel,
-    description,
-    metadata,
-    meta,
-  });
-};
-
-// ── 2. WITHDRAWAL ─────────────────────────────────────────────────────────────
-/**
- * Debit funds from a single account (no destination account).
- * Channels: branch, atm, api
- */
-export const withdrawService = async ({
-  accountId, amount, currency = 'INR', channel = 'branch',
-  description = null, cardId = null, idempotencyKey = null, metadata = null,
-}, meta = {}) => {
-  const ALLOWED_CHANNELS = ['branch', 'atm', 'api'];
-  if (!ALLOWED_CHANNELS.includes(channel)) throw mkErr('INVALID_CHANNEL', 400);
-
-  return _executeTransaction({
-    idempotencyKey,
-    idempotencyAcct: accountId,
-    operation: 'withdrawal',
-    sourceAccountId: accountId,
-    cardId,
-    amount, currency,
-    txnType: 'withdrawal',
-    channel,
-    description,
-    metadata,
-    meta,
-  });
-};
-
-// ── 3. FUND TRANSFER ──────────────────────────────────────────────────────────
+// ── 1. FUND TRANSFER ──────────────────────────────────────────────────────────
 /**
  * Move funds from sourceAccountId to destinationAccountId.
  * Channels: web, mobile, upi, neft, rtgs, imps, branch
@@ -541,7 +488,7 @@ export const cardPaymentService = async ({
   });
 };
 
-// ── 5. UPI PAYMENT (simulation) ───────────────────────────────────────────────
+// ── 3. UPI PAYMENT (simulation) ───────────────────────────────────────────────
 /**
  * UPI-channel transfer. Functionally identical to transfer but channel = 'upi'.
  * UPI VPA is stored in metadata.
@@ -567,64 +514,7 @@ export const upiPaymentService = async ({
   });
 };
 
-// ── 6. ATM WITHDRAWAL (simulation) ───────────────────────────────────────────
-/**
- * ATM cash withdrawal. Requires an active card on the account.
- * Enforces daily_atm and single_txn card limits.
- */
-export const atmWithdrawalService = async ({
-  accountId, cardId, amount, currency = 'INR',
-  locationCity = null, idempotencyKey = null,
-}, meta = {}) => {
-  if (!cardId) throw mkErr('CARD_REQUIRED', 400);
-  return _executeTransaction({
-    idempotencyKey,
-    idempotencyAcct: accountId,
-    operation: 'atm_withdrawal',
-    sourceAccountId: accountId,
-    cardId,
-    amount, currency,
-    txnType: 'withdrawal',
-    channel: 'atm',
-    description: 'ATM cash withdrawal',
-    metadata: { locationCity },
-    meta: { ...meta, location: { city: locationCity ?? null, country: meta.location?.country ?? null } },
-  });
-};
-
-// ── 7. ONLINE PAYMENT (simulation) ───────────────────────────────────────────
-/**
- * Online (web/mobile) card payment.
- * Enforces daily_online and single_txn card limits.
- */
-export const onlinePaymentService = async ({
-  accountId, cardId, amount, currency = 'INR',
-  merchantName = null, merchantCategory = null,
-  description = null, channel = 'web',
-  idempotencyKey = null, metadata = null,
-}, meta = {}) => {
-  if (!cardId) throw mkErr('CARD_REQUIRED', 400);
-  const ALLOWED = ['web', 'mobile'];
-  if (!ALLOWED.includes(channel)) throw mkErr('INVALID_CHANNEL', 400);
-
-  return _executeTransaction({
-    idempotencyKey,
-    idempotencyAcct: accountId,
-    operation: 'online_payment',
-    sourceAccountId: accountId,
-    cardId,
-    amount, currency,
-    txnType: 'payment',
-    channel,
-    description,
-    merchantName,
-    merchantCategory,
-    metadata,
-    meta,
-  });
-};
-
-// ── 8. GET TRANSACTION ────────────────────────────────────────────────────────
+// ── 3. UPI PAYMENT (simulation) ───────────────────────────────────────────────
 
 export const getTransactionService = async (idOrRef) => {
   // Accept UUID or transaction_ref (TXN-YYYYMMDD-XXXXXXXX)

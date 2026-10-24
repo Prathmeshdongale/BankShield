@@ -3,28 +3,23 @@ import { AlertCircle, X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 /**
- * ErrorMessage — inline error display used in forms and pages.
- *
- * Props:
- *   message   string | null   — if null/empty, renders nothing
- *   title     string          — optional heading (default 'Error')
- *   onDismiss () => void      — if provided, shows an X button
- *   className string
+ * ErrorMessage — inline error banner.
+ * Props: message, title, onDismiss, className
  */
 export const ErrorMessage = ({ message, title = 'Error', onDismiss, className }) => {
   if (!message) return null;
-
   return (
     <div
       role="alert"
       className={cn(
-        'flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3',
-        'dark:border-red-800 dark:bg-red-950/40',
+        'flex items-start gap-3 rounded-lg border px-4 py-3',
+        'border-red-200 bg-red-50 text-red-700',
+        'dark:border-red-800/50 dark:bg-red-950/40 dark:text-red-300',
         className
       )}
     >
-      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
-      <div className="flex-1 text-sm text-red-700 dark:text-red-300">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="flex-1 text-sm">
         {title && <p className="font-semibold">{title}</p>}
         <p>{message}</p>
       </div>
@@ -33,7 +28,7 @@ export const ErrorMessage = ({ message, title = 'Error', onDismiss, className })
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss error"
-          className="ml-auto shrink-0 text-red-500 hover:text-red-700 dark:text-red-400"
+          className="ml-auto shrink-0 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300"
         >
           <X className="h-4 w-4" />
         </button>
@@ -43,7 +38,7 @@ export const ErrorMessage = ({ message, title = 'Error', onDismiss, className })
 };
 
 /**
- * FieldError — tiny error text shown below a form field.
+ * FieldError — tiny validation error shown below a form field.
  */
 export const FieldError = ({ message, className }) => {
   if (!message) return null;

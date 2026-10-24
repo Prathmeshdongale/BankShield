@@ -1,93 +1,110 @@
 @import "tailwindcss";
 
-/* ── Custom CSS variables (light / dark) ─────────────────────────────────────
-   Using @layer base so Tailwind's dark: variants work alongside these.
-   Access in JSX with bg-[var(--color-surface)] etc. when needed.
+/* ── CSS design tokens ───────────────────────────────────────────────────────
+   Light & dark palettes. Tailwind's dark: variants work alongside these.
    ─────────────────────────────────────────────────────────────────────────── */
 
 @layer base {
   :root {
     /* Backgrounds */
-    --color-bg          : #f8fafc;      /* gray-50 */
+    --color-bg          : #f1f5f9;      /* slate-100 — subtle off-white */
     --color-surface     : #ffffff;
-    --color-surface-2   : #f1f5f9;      /* gray-100 */
-    --color-border      : #e2e8f0;      /* gray-200 */
+    --color-surface-2   : #f8fafc;      /* slate-50 */
+    --color-surface-3   : #e2e8f0;      /* slate-200 */
+    --color-border      : #cbd5e1;      /* slate-300 */
+    --color-border-soft : #e2e8f0;      /* slate-200 */
 
     /* Text */
-    --color-text        : #0f172a;      /* gray-900 */
-    --color-text-muted  : #64748b;      /* gray-500 */
-    --color-text-subtle : #94a3b8;      /* gray-400 */
+    --color-text        : #0f172a;      /* slate-900 */
+    --color-text-muted  : #475569;      /* slate-600 */
+    --color-text-subtle : #94a3b8;      /* slate-400 */
 
-    /* Brand */
+    /* Brand / primary */
     --color-primary     : #2563eb;      /* blue-600 */
-    --color-primary-dark: #1d4ed8;      /* blue-700 */
-    --color-primary-light:#eff6ff;      /* blue-50  */
+    --color-primary-hover: #1d4ed8;     /* blue-700 */
+    --color-primary-light: #eff6ff;     /* blue-50 */
+    --color-primary-ring : #93c5fd;     /* blue-300 */
 
     /* Status */
-    --color-success     : #16a34a;
-    --color-warning     : #d97706;
-    --color-danger      : #dc2626;
-    --color-info        : #0284c7;
+    --color-success     : #16a34a;      /* green-600 */
+    --color-success-bg  : #f0fdf4;      /* green-50 */
+    --color-warning     : #d97706;      /* amber-600 */
+    --color-warning-bg  : #fffbeb;      /* amber-50 */
+    --color-danger      : #dc2626;      /* red-600 */
+    --color-danger-bg   : #fef2f2;      /* red-50 */
+    --color-info        : #0284c7;      /* sky-600 */
+    --color-info-bg     : #f0f9ff;      /* sky-50 */
 
-    /* Sidebar */
-    --sidebar-width     : 16rem;        /* 256px */
-    --topbar-height     : 4rem;         /* 64px  */
+    /* Layout */
+    --sidebar-width     : 16rem;
+    --topbar-height     : 4rem;
   }
 
+  /* ── Dark theme ──────────────────────────────────────────────────────────── */
   .dark {
-    --color-bg          : #030712;      /* gray-950 */
+    --color-bg          : #0a0f1a;      /* near black — deep navy */
     --color-surface     : #111827;      /* gray-900 */
-    --color-surface-2   : #1f2937;      /* gray-800 */
-    --color-border      : #374151;      /* gray-700 */
+    --color-surface-2   : #1a2236;      /* slightly lifted */
+    --color-surface-3   : #1f2937;      /* gray-800 */
+    --color-border      : #2d3748;      /* between gray-700/800 */
+    --color-border-soft : #1f2937;      /* gray-800 */
 
-    --color-text        : #f9fafb;      /* gray-50  */
-    --color-text-muted  : #9ca3af;      /* gray-400 */
-    --color-text-subtle : #6b7280;      /* gray-500 */
+    --color-text        : #f1f5f9;      /* slate-100 */
+    --color-text-muted  : #94a3b8;      /* slate-400 */
+    --color-text-subtle : #4b5563;      /* gray-600 */
 
     --color-primary     : #3b82f6;      /* blue-500 */
-    --color-primary-dark: #2563eb;
-    --color-primary-light:#1e3a5f;
+    --color-primary-hover: #60a5fa;     /* blue-400 */
+    --color-primary-light: #1e3a5f;     /* custom deep blue */
+    --color-primary-ring : #1d4ed8;     /* blue-700 */
+
+    --color-success-bg  : #052e16;      /* green-950 */
+    --color-warning-bg  : #1c1400;      /* amber-950 */
+    --color-danger-bg   : #1c0a0a;      /* red-950 */
+    --color-info-bg     : #082035;      /* sky-950 */
   }
 
-  /* Smooth theme transitions */
-  *,
-  *::before,
-  *::after {
-    transition-property: background-color, border-color, color;
-    transition-duration: 150ms;
-    transition-timing-function: ease;
+  /* ── Smooth theme transitions ────────────────────────────────────────────── */
+  *, *::before, *::after {
+    transition-property : background-color, border-color, color, box-shadow;
+    transition-duration : 180ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Remove transition on interactive elements to keep clicks snappy */
+  /* Snappy interactive elements */
   button, a, input, select, textarea {
-    transition-duration: 100ms;
+    transition-duration: 120ms;
   }
 
   html {
     font-size: 16px;
     -webkit-tap-highlight-color: transparent;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
     background-color: var(--color-bg);
-    color: var(--color-text);
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-      "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    color           : var(--color-text);
+    font-family     : ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+                      "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    -webkit-font-smoothing  : antialiased;
+    -moz-osx-font-smoothing : grayscale;
   }
 
-  /* Focus ring — accessibility */
+  /* Focus ring */
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline       : 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
-  /* Scrollbar (webkit) */
-  ::-webkit-scrollbar        { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track  { background: transparent; }
-  ::-webkit-scrollbar-thumb  {
-    background: var(--color-border);
+  /* Scrollbar */
+  ::-webkit-scrollbar         { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track   { background: transparent; }
+  ::-webkit-scrollbar-thumb   {
+    background   : var(--color-border);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
@@ -95,40 +112,44 @@
   }
 }
 
-/* ── Utility helpers (not Tailwind classes) ──────────────────────────────────*/
+/* ── Utility helpers ─────────────────────────────────────────────────────────*/
 
 @layer utilities {
-  /* Fade-in animation for page mounts */
+  /* Page mount */
   .animate-fade-in {
-    animation: fadeIn 0.2s ease-out;
+    animation: fadeIn 0.22s ease-out;
   }
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
+    from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0);   }
   }
 
   /* Skeleton shimmer */
   .animate-skeleton {
-    background: linear-gradient(
+    background     : linear-gradient(
       90deg,
       var(--color-surface-2) 25%,
       var(--color-border)    50%,
       var(--color-surface-2) 75%
     );
     background-size: 200% 100%;
-    animation: skeleton 1.4s ease infinite;
+    animation      : skeleton 1.5s ease infinite;
   }
   @keyframes skeleton {
-    0%   { background-position: 200% 0; }
+    0%   { background-position:  200% 0; }
     100% { background-position: -200% 0; }
   }
 
-  /* Card base */
+  /* Card base helper (use when not using the Card component) */
   .card {
-    background-color  : var(--color-surface);
-    border            : 1px solid var(--color-border);
-    border-radius     : 0.75rem;
-    padding           : 1.5rem;
-    box-shadow        : 0 1px 3px 0 rgb(0 0 0 / 0.06);
+    background-color: var(--color-surface);
+    border          : 1px solid var(--color-border);
+    border-radius   : 0.75rem;
+    padding         : 1.5rem;
+    box-shadow      : 0 1px 4px 0 rgb(0 0 0 / 0.07);
   }
+
+  /* Surface tints for nested panels */
+  .surface-2 { background-color: var(--color-surface-2); }
+  .surface-3 { background-color: var(--color-surface-3); }
 }

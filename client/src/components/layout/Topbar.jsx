@@ -111,8 +111,9 @@ export const Topbar = ({ onToggleSidebar, sidebarOpen }) => {
   return (
     <header className={cn(
       'sticky top-0 z-50 flex h-16 w-full items-center justify-between',
-      'border-b border-gray-200 bg-white/95 px-4 backdrop-blur-sm',
-      'dark:border-gray-800 dark:bg-gray-900/95'
+      'border-b px-4 backdrop-blur-sm',
+      'border-slate-200 bg-white/95',
+      'dark:border-slate-700/40 dark:bg-gray-900/95'
     )}>
 
       {/* ── Left: hamburger + logo ─────────────────────────────────────────── */}
@@ -145,10 +146,17 @@ export const Topbar = ({ onToggleSidebar, sidebarOpen }) => {
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          aria-label="Toggle theme"
-          className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          className={cn(
+            'rounded-lg p-2 transition-colors',
+            'text-slate-500 hover:bg-slate-100 hover:text-slate-700',
+            'dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-amber-400'
+          )}
         >
-          {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          {isDark
+            ? <Sun  className="h-5 w-5 text-amber-400" />
+            : <Moon className="h-5 w-5" />}
         </button>
 
         {/* Notifications bell with live badge */}

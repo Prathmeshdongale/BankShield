@@ -5,5 +5,8 @@
     "install:client": "npm install --prefix client",
     "install:server": "npm install --prefix server",
     "install:all": "npm run install:client && npm run install:server"
+  },
+  "dependencies": {
+    "nodemon": "^3.1.14"
   }
 }

@@ -1,36 +1,33 @@
-import React from 'react';
-import { cn }     from '@/utils/cn';
-import { Spinner } from './Spinner';
-
 /**
- * LoadingOverlay — full-page semi-transparent overlay while async ops run.
- * Use sparingly; prefer inline spinners for local loading states.
+ * LoadingOverlay.jsx — Full-page and inline loading states.
  */
-export const LoadingOverlay = ({ message = 'Loading…', className }) => (
-  <div
-    role="status"
-    aria-live="polite"
-    className={cn(
-      'fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4',
-      'bg-white/70 backdrop-blur-sm dark:bg-gray-950/70',
-      className
-    )}
-  >
-    <Spinner size="xl" />
-    {message && (
-      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{message}</p>
+import React from 'react';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/utils/cn';
+
+/** Full-page spinner overlay */
+export const LoadingOverlay = ({ label = 'Loading…' }) => (
+  <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm dark:bg-gray-950/80">
+    <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
+    {label && (
+      <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
     )}
   </div>
 );
 
-/**
- * InlineLoader — centred spinner with optional label for cards / sections.
- */
+/** Inline (in-content) spinner — use inside cards/sections */
 export const InlineLoader = ({ label = 'Loading…', className }) => (
-  <div className={cn('flex flex-col items-center justify-center gap-3 py-16', className)}>
-    <Spinner size="lg" />
-    <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+  <div className={cn('flex flex-col items-center justify-center gap-2 py-10', className)}>
+    <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
+    {label && (
+      <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
+    )}
   </div>
+);
+
+/** Tiny spinner for use inside buttons etc. */
+export const Spinner = ({ className }) => (
+  <Loader2 className={cn('h-4 w-4 animate-spin', className)} />
 );
 
 export default LoadingOverlay;
