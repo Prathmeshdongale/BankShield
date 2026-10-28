@@ -189,9 +189,9 @@ const ROLE_PERMISSIONS = {
 };
 
 /**
- * Super-admin user seed.
- * Password is read from SUPER_ADMIN_PASSWORD env var.
- * Falls back to a strong default only in non-production environments.
+ * Super-admin user — only system user seeded.
+ * ALL other users (customers, managers, analysts) are created through
+ * the application UI or API — never hardcoded here.
  */
 const SUPER_ADMIN = {
   email      : process.env.SUPER_ADMIN_EMAIL    || 'superadmin@bankshield.internal',
@@ -199,37 +199,6 @@ const SUPER_ADMIN = {
   first_name : 'Super',
   last_name  : 'Admin',
   role_name  : 'super_admin',
-};
-
-/**
- * Default passwords for 4 roles (development only).
- * For production, set individual passwords via environment variables.
- */
-const ROLE_USERS = {
-  super_admin: {
-    email: 'superadmin@bankshield.internal',
-    password: process.env.SUPER_ADMIN_PASSWORD || 'SuperAdmin@2024!',
-    first_name: 'Super',
-    last_name: 'Admin',
-  },
-  branch_manager: {
-    email: 'manager@bankshield.internal',
-    password: process.env.BRANCH_MANAGER_PASSWORD || 'BranchManager@2024!',
-    first_name: 'Branch',
-    last_name: 'Manager',
-  },
-  fraud_analyst: {
-    email: 'fraud@bankshield.internal',
-    password: process.env.FRAUD_ANALYST_PASSWORD || 'FraudAnalyst@2024!',
-    first_name: 'Fraud',
-    last_name: 'Analyst',
-  },
-  customer: {
-    email: 'customer@bankshield.internal',
-    password: process.env.CUSTOMER_PASSWORD || 'Customer@2024!',
-    first_name: 'Customer',
-    last_name: 'User',
-  },
 };
 
 // ============================================================================
@@ -371,58 +340,6 @@ async function seedSuperAdmin(client) {
   );
 }
 
-async function seedRoleUsers(client) {
-  log.info('Seeding users for all roles…');
-  
-  const { rows: roleRows } = await client.query('SELECT id, name FROM roles');
-  const roleMap = new Map(roleRows.map((r) => [r.name, r.id]));
-  
-  let created = 0;
-  let updated = 0;
-
-  await client.query('BEGIN');
-  try {
-    for (const [roleName, userData] of Object.entries(ROLE_USERS)) {
-      const roleId = roleMap.get(roleName);
-      if (!roleId) {
-        log.warn(`Role not found: ${roleName} — skipping user creation`);
-        continue;
-      }
-
-      const password_hash = await bcrypt.hash(userData.password, SALT_ROUNDS);
-      
-      const { rowCount } = await client.query(
-        `INSERT INTO users
-           (email, password_hash, first_name, last_name, role_id,
-            is_active, is_verified, password_changed_at)
-         VALUES ($1, $2, $3, $4, $5, TRUE, TRUE, NOW())
-         ON CONFLICT (email) DO UPDATE
-           SET password_hash        = EXCLUDED.password_hash,
-               first_name           = EXCLUDED.first_name,
-               last_name            = EXCLUDED.last_name,
-               role_id              = EXCLUDED.role_id,
-               is_active            = TRUE,
-               is_verified          = TRUE,
-               password_changed_at  = NOW(),
-               updated_at           = NOW()
-         RETURNING id`,
-        [userData.email, password_hash, userData.first_name, userData.last_name, roleId]
-      );
-
-      if (rowCount > 0) {
-        created++;
-        log.ok(`Created ${roleName}: ${userData.email}`);
-      } else {
-        updated++;
-        log.info(`Updated ${roleName}: ${userData.email}`);
-      }
-    }
-    await client.query('COMMIT');
-  } catch (err) { await client.query('ROLLBACK'); throw err; }
-
-  log.ok(`Role users: ${created} created, ${updated} updated`);
-}
-
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -480,7 +397,6 @@ async function main() {
     await withClient(pool, (c) => seedPermissions(c));
     await withClient(pool, (c) => seedRolePermissions(c));
     await withClient(pool, (c) => seedSuperAdmin(c));
-    await withClient(pool, (c) => seedRoleUsers(c));
 
     log.title('Seeding complete ✔');
     console.log('');
@@ -489,10 +405,8 @@ async function main() {
     console.log(`  Roles seeded         : ${ROLES.length}`);
     console.log(`  Permissions seeded   : ${PERMISSIONS.length}`);
     console.log('');
-    console.log('  Role Users:');
-    for (const [role, data] of Object.entries(ROLE_USERS)) {
-      console.log(`    ${role}: ${data.email}  (password env: ${role.toUpperCase()}_PASSWORD)`);
-    }
+    console.log('  All other users (customers, branch managers, fraud analysts)');
+    console.log('  must be created through the application UI or POST /api/auth/register.');
     console.log('');
   } catch (err) {
     log.error(`Seeding failed: ${err.message}`);

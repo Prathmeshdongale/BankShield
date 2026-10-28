@@ -1,397 +1,210 @@
 /**
  * FraudAnalystDashboard.jsx — Fraud investigation dashboard.
- *
- * Features:
- *   • Fraud alert triage and prioritization
- *   • ML prediction scores and explanations
- *   • Investigation case management
- *   • SHAP-based feature contribution analysis
- *   • Alert status updates
+ * All data from live API — no hardcoded values.
  */
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import {
-  AlertTriangle, ShieldCheck, Activity, BrainCircuit,
-  Clock, CheckCircle, XCircle, Search
-} from 'lucide-react';
+import { AlertTriangle, ShieldCheck, Activity, RefreshCw, Search } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { RiskBadge } from '@/components/fraud/RiskBadge';
-import { InlineLoader } from '@/components/ui/LoadingOverlay';
+import { StatusBadge }   from '@/components/ui/StatusBadge';
+import { RiskBadge }     from '@/components/fraud/RiskBadge';
+import { InlineLoader }  from '@/components/ui/LoadingOverlay';
+import { ErrorMessage }  from '@/components/ui/ErrorMessage';
+import { Button }        from '@/components/ui/button';
+import Select            from '@/components/ui/Select';
+import { fraudService }     from '@/services/fraudService';
+import { dashboardService } from '@/services/dashboardService';
+import api                  from '@/services/api';
 
-const AlertCard = ({ alert, onAction }) => (
-  <Card className="hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
-    <CardHeader className="pb-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <CardTitle className="text-sm font-semibold">Transaction Alert</CardTitle>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            ID: {alert.id} • {alert.transaction_ref}
-          </p>
-        </div>
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          alert.severity === 'critical' ? 'bg-red-100 text-red-800' :
-          alert.severity === 'high' ? 'bg-orange-100 text-orange-800' :
-          alert.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-blue-100 text-blue-800'
-        }`}>
-          {alert.severity.toUpperCase()}
-        </span>
-      </div>
-    </CardHeader>
-    <CardContent className="space-y-3">
-      {/* Risk Score */}
-      <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
-        <span className="text-sm text-gray-600 dark:text-gray-400">Risk Score</span>
-        <RiskBadge score={alert.risk_score} showScore />
-      </div>
+const fmtAmt = (n) => new Intl.NumberFormat('en-IN', {
+  style: 'currency', currency: 'INR', maximumFractionDigits: 0,
+}).format(n ?? 0);
 
-      {/* Transaction Details */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-gray-500 uppercase">Transaction Details</p>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">Amount:</span>
-            <span className="ml-2 font-medium text-gray-900 dark:text-white">
-              ₹{alert.amount?.toLocaleString()}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">Channel:</span>
-            <span className="ml-2 font-medium text-gray-900 dark:text-white">
-              {alert.channel || 'N/A'}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">Time:</span>
-            <span className="ml-2 font-medium text-gray-900 dark:text-white">
-              {new Date(alert.created_at).toLocaleTimeString()}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">Customer:</span>
-            <span className="ml-2 font-medium text-gray-900 dark:text-white truncate max-w-[100px]">
-              {alert.customer_name}
-            </span>
-          </div>
-        </div>
-      </div>
+const fmtDate = (s) => s
+  ? new Date(s).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+  : '—';
 
-      {/* ML Prediction Info */}
-      {alert.model_version && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
-          <div className="flex items-center gap-2 mb-2">
-            <BrainCircuit className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">ML Prediction</span>
-          </div>
-          <div className="text-xs text-blue-800 dark:text-blue-200">
-            <p>Model: {alert.model_version}</p>
-            <p>Decision: {alert.decision || 'REVIEW'}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="flex gap-2 pt-2">
-        <Link to={`/fraud/alerts/${alert.id}/investigate`}>
-          <button className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700">
-            <Activity className="h-4 w-4" />
-            Investigate
-          </button>
-        </Link>
-        <button 
-          onClick={() => onAction(alert.id, 'approve')}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700"
-        >
-          <CheckCircle className="h-4 w-4" />
-        </button>
-        <button 
-          onClick={() => onAction(alert.id, 'block')}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700"
-        >
-          <XCircle className="h-4 w-4" />
-        </button>
-      </div>
-    </CardContent>
-  </Card>
-);
+const STATUSES = ['', 'open', 'investigating', 'escalated'];
 
 const FraudAnalystDashboard = () => {
-  const { user } = useAuth();
-  const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, open, investigating, needs_review
+  const [alerts,   setAlerts]   = useState([]);
+  const [summary,  setSummary]  = useState(null);
+  const [mlHealth, setMlHealth] = useState(null);
+  const [status,   setStatus]   = useState('');
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
 
-  const fetchAlerts = async () => {
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
     try {
-      // In production, this would call GET /api/fraud/alerts
-      const mockAlerts = [
-        {
-          id: 'ALT-001',
-          transaction_ref: 'TXN-20261013-001',
-          customer_name: 'Rahul Sharma',
-          amount: 150000,
-          risk_score: 0.92,
-          severity: 'critical',
-          status: 'open',
-          channel: 'online',
-          created_at: '2026-10-13T10:30:00Z',
-          model_version: 'xgboost-v2.0',
-          decision: 'BLOCK'
-        },
-        {
-          id: 'ALT-002',
-          transaction_ref: 'TXN-20261013-002',
-          customer_name: 'Priya Patel',
-          amount: 75000,
-          risk_score: 0.78,
-          severity: 'high',
-          status: 'open',
-          channel: 'mobile',
-          created_at: '2026-10-13T09:15:00Z',
-          model_version: 'xgboost-v2.0',
-          decision: 'REVIEW'
-        },
-        {
-          id: 'ALT-003',
-          transaction_ref: 'TXN-20261013-003',
-          customer_name: 'Amit Kumar',
-          amount: 45000,
-          risk_score: 0.55,
-          severity: 'medium',
-          status: 'investigating',
-          channel: 'atm',
-          created_at: '2026-10-13T08:45:00Z',
-          model_version: 'xgboost-v2.0',
-          decision: 'REVIEW'
-        },
-        {
-          id: 'ALT-004',
-          transaction_ref: 'TXN-20261013-004',
-          customer_name: 'Sneha Rao',
-          amount: 200000,
-          risk_score: 0.35,
-          severity: 'low',
-          status: 'open',
-          channel: 'branch',
-          created_at: '2026-10-13T11:20:00Z',
-          model_version: 'xgboost-v2.0',
-          decision: 'APPROVE'
-        },
-        {
-          id: 'ALT-005',
-          transaction_ref: 'TXN-20261012-100',
-          customer_name: 'Vikram Singh',
-          amount: 500000,
-          risk_score: 0.85,
-          severity: 'high',
-          status: 'investigating',
-          channel: 'online',
-          created_at: '2026-10-12T16:30:00Z',
-          model_version: 'xgboost-v2.0',
-          decision: 'REVIEW'
-        }
-      ];
+      const [alertRes, sumRes] = await Promise.allSettled([
+        fraudService.listAlerts({ status: status || undefined, limit: 12, sortDir: 'DESC' }),
+        dashboardService.getSummary(),
+      ]);
+      if (alertRes.status === 'fulfilled') setAlerts(alertRes.value.data?.data ?? []);
+      if (sumRes.status   === 'fulfilled') setSummary(sumRes.value.data);
 
-      // Filter alerts
-      const filtered = mockAlerts.filter(alert => {
-        if (filter === 'all') return true;
-        if (filter === 'open') return alert.status === 'open';
-        if (filter === 'investigating') return alert.status === 'investigating';
-        if (filter === 'needs_review') return alert.status === 'open' && alert.severity !== 'low';
-        return true;
-      });
-
-      setAlerts(filtered);
-    } catch (err) {
-      console.error('Failed to fetch alerts:', err);
+      // ML health check (best-effort, non-blocking)
+      try {
+        const health = await api.get('/fraud/ml-status');
+        setMlHealth(health.data?.data ?? null);
+      } catch {}
+    } catch (e) {
+      setError('Failed to load dashboard data.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [status]);
 
-  useEffect(() => {
-    fetchAlerts();
-  }, [filter]);
-
-  const handleAlertAction = (alertId, action) => {
-    console.log(`Action ${action} on alert ${alertId}`);
-    // In production, this would call PATCH /api/fraud/alerts/:id
-    fetchAlerts(); // Refresh after action
-  };
+  useEffect(() => { load(); }, [load]);
 
   const stats = {
-    total: alerts.length,
-    open: alerts.filter(a => a.status === 'open').length,
+    open        : alerts.filter(a => a.status === 'open').length,
     investigating: alerts.filter(a => a.status === 'investigating').length,
-    critical: alerts.filter(a => a.severity === 'critical').length,
-    high: alerts.filter(a => a.severity === 'high').length
+    escalated   : alerts.filter(a => a.status === 'escalated').length,
+    critical    : alerts.filter(a => a.severity === 'critical').length,
   };
 
-  if (loading) {
-    return <InlineLoader label="Loading fraud alerts..." />;
-  }
+  if (loading) return <InlineLoader label="Loading fraud dashboard…" />;
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Fraud Investigation Dashboard
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             ML-powered fraud detection with SHAP explanations
           </p>
         </div>
         <div className="flex gap-2">
-          {['all', 'open', 'investigating', 'needs_review'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-              }`}
-            >
-              {f.replace('_', ' ').toUpperCase()}
-            </button>
-          ))}
+          <Select value={status} onChange={e => setStatus(e.target.value)} className="w-40">
+            {STATUSES.map(s => <option key={s} value={s}>{s || 'All statuses'}</option>)}
+          </Select>
+          <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+          </Button>
         </div>
       </div>
 
-      {/* Statistics */}
+      <ErrorMessage message={error} />
+
+      {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Total Alerts</div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Open</div>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{stats.open}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Investigating</div>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{stats.investigating}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Critical</div>
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{stats.critical}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400">High Severity</div>
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{stats.high}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Alert Queue */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Alert Queue</h2>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            {alerts.length} alerts to review
-          </span>
-        </div>
-
-        {alerts.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <ShieldCheck className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400">No alerts matching your filter.</p>
+        {[
+          { label: 'Fraud Rate (30d)',  value: `${(summary?.fraud?.rate_30d_pct ?? 0).toFixed(2)}%`, cls: 'text-red-600 dark:text-red-400'    },
+          { label: 'Open',             value: stats.open,                                             cls: 'text-amber-600 dark:text-amber-400' },
+          { label: 'Investigating',    value: stats.investigating,                                    cls: 'text-blue-600 dark:text-blue-400'   },
+          { label: 'Escalated',        value: stats.escalated,                                        cls: 'text-orange-600 dark:text-orange-400'},
+          { label: 'Critical',         value: stats.critical,                                         cls: 'text-red-600 dark:text-red-400'     },
+        ].map(({ label, value, cls }) => (
+          <Card key={label}>
+            <CardContent className="pt-6">
+              <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+              <div className={`text-2xl font-bold mt-1 ${cls}`}>{value}</div>
             </CardContent>
           </Card>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {alerts.map(alert => (
-              <AlertCard
-                key={alert.id}
-                alert={alert}
-                onAction={handleAlertAction}
-              />
-            ))}
-          </div>
-        )}
+        ))}
       </div>
 
-      {/* ML Model Status */}
+      {/* Alert queue */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <BrainCircuit className="h-4 w-4 text-purple-500" />
-            ML Model Status
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+            Alert Queue
           </CardTitle>
+          <Link to="/fraud/alerts" className="text-xs text-blue-600 hover:underline dark:text-blue-400">
+            Full queue →
+          </Link>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
-          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Model Version</div>
-            <div className="font-mono text-sm font-medium text-gray-900 dark:text-white mt-1">xgboost-v2.0</div>
-          </div>
-          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Features</div>
-            <div className="font-mono text-sm font-medium text-gray-900 dark:text-white mt-1">18</div>
-          </div>
-          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Last Updated</div>
-            <div className="text-sm font-medium text-gray-900 dark:text-white mt-1">2026-10-10</div>
-          </div>
+        <CardContent className="p-0">
+          {alerts.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-12 text-slate-400">
+              <ShieldCheck className="h-8 w-8" />
+              <p className="text-sm">No alerts match your filter.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 text-left">
+                    {['Transaction', 'Amount', 'Risk Score', 'Severity', 'Status', 'Analyst', 'Created', ''].map(h => (
+                      <th key={h} className="px-4 py-2.5 font-semibold uppercase tracking-wide text-slate-500">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {alerts.map(a => (
+                    <tr key={a.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-500">{a.transaction_ref ?? a.id?.slice(0,8)}</td>
+                      <td className="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200">{fmtAmt(a.amount)}</td>
+                      <td className="px-4 py-2.5"><RiskBadge score={a.risk_score} /></td>
+                      <td className="px-4 py-2.5"><StatusBadge value={a.severity} /></td>
+                      <td className="px-4 py-2.5"><StatusBadge value={a.status} /></td>
+                      <td className="px-4 py-2.5 text-slate-400">{a.analyst_email ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-slate-400">{fmtDate(a.created_at)}</td>
+                      <td className="px-4 py-2.5">
+                        <Link to="/fraud/alerts">
+                          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]">Review</Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Quick Stats */}
+      {/* ML model status */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Recent Activity</CardTitle>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="h-4 w-4 text-purple-500" /> ML Model Status
+          </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60 text-left">
-                  <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Time</th>
-                  <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Alert</th>
-                  <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Customer</th>
-                  <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Risk</th>
-                  <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {alerts.slice(0, 5).map(alert => (
-                  <tr key={alert.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
-                      {new Date(alert.created_at).toLocaleTimeString()}
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-[11px] text-gray-600 dark:text-gray-300">
-                      {alert.transaction_ref}
-                    </td>
-                    <td className="px-4 py-2.5 text-gray-800 dark:text-gray-200">
-                      {alert.customer_name}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <RiskBadge score={alert.risk_score} />
-                    </td>
-                    <td className="px-4 py-2.5 capitalize text-gray-600 dark:text-gray-400">
-                      {alert.status}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <CardContent>
+          {mlHealth ? (
+            <div className="grid gap-4 sm:grid-cols-4">
+              {[
+                { label: 'Status',          value: mlHealth.status ?? '—'          },
+                { label: 'Model',           value: mlHealth.model_version ?? '—'   },
+                { label: 'Features',        value: mlHealth.model_features ?? '—'  },
+                { label: 'Threshold',       value: mlHealth.threshold ?? '—'       },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-4">
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+                  <div className="mt-1 font-mono text-sm font-medium text-slate-900 dark:text-slate-100">{String(value)}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">ML service health unavailable — check if FastAPI is running on port 8000.</p>
+          )}
         </CardContent>
       </Card>
+
+      {/* Quick links */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[
+          { label: 'Full Alert Queue',   path: '/fraud/alerts',         Icon: AlertTriangle, bg: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'       },
+          { label: 'Investigations',     path: '/fraud/investigations', Icon: Search,        bg: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'   },
+          { label: 'Fraud Reports',      path: '/reports',              Icon: Activity,      bg: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
+        ].map(({ label, path, Icon, bg }) => (
+          <Link key={path} to={path}>
+            <Card className="cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+              <CardContent className="p-6 flex flex-col items-center text-center">
+                <div className={`mb-3 rounded-full p-3 ${bg}`}><Icon className="h-6 w-6" /></div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 };

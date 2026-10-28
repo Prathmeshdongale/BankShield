@@ -12,6 +12,8 @@
     "seed": "node src/db/seeds.js",
     "db:setup": "node src/db/migrate.js && node src/db/seeds.js",
     "db:reset": "node src/db/migrate.js --force && node src/db/seeds.js",
+    "db:clean": "node src/db/clean.js",
+    "db:fresh": "node src/db/clean.js --force && node src/db/seeds.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -1,249 +1,127 @@
 /**
  * BranchManagerDashboard.jsx — Branch operations dashboard.
- *
- * Features:
- *   • Branch overview and operational statistics
- *   • Customer management (own branch only)
- *   • Account oversight
- *   • Fraud review and alert triage
- *   • Branch-level reports
+ * All data from live API — no hardcoded values.
  */
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import {
-  Users, Building2, AlertTriangle, TrendingUp, DollarSign,
-  RefreshCw, ArrowUpRight, ArrowDownRight
-} from 'lucide-react';
+import { Users, Building2, AlertTriangle, TrendingUp, FileText, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { RiskBadge } from '@/components/fraud/RiskBadge';
-import { InlineLoader } from '@/components/ui/LoadingOverlay';
+import { StatusBadge }   from '@/components/ui/StatusBadge';
+import { RiskBadge }     from '@/components/fraud/RiskBadge';
+import { InlineLoader }  from '@/components/ui/LoadingOverlay';
+import { ErrorMessage }  from '@/components/ui/ErrorMessage';
+import { Button }        from '@/components/ui/button';
+import { dashboardService } from '@/services/dashboardService';
+import { fraudService }     from '@/services/fraudService';
 
-const fmtAmt = (n) => new Intl.NumberFormat('en-IN', { 
-  style: 'currency', currency: 'INR', maximumFractionDigits: 0 
+const fmtAmt = (n) => new Intl.NumberFormat('en-IN', {
+  style: 'currency', currency: 'INR', maximumFractionDigits: 0,
 }).format(n ?? 0);
 
-const BranchManagerDashboard = () => {
-  const { user } = useAuth();
-  const [branchData, setBranchData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+const fmtDate = (s) => s
+  ? new Date(s).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+  : '—';
 
-  // Simulated data - in production, this would fetch from the API
-  const fetchBranchData = async () => {
+const BranchManagerDashboard = () => {
+  const { user }   = useAuth();
+  const [data,     setData]    = useState(null);
+  const [alerts,   setAlerts]  = useState([]);
+  const [loading,  setLoading] = useState(true);
+  const [error,    setError]   = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
     try {
-      // This would call GET /api/branches/:id/overview
-      const mockData = {
-        branch: {
-          name: 'Main Branch',
-          code: 'BR-001',
-          customer_count: 450,
-          active_accounts: 380,
-          total_deposits: 25000000,
-          today_transactions: 125
-        },
-        alerts: [
-          { id: 'ALR-001', customer: 'Rahul Sharma', amount: 75000, risk_score: 0.82, status: 'open', severity: 'high' },
-          { id: 'ALR-002', customer: 'Priya Patel', amount: 125000, risk_score: 0.65, status: 'investigating', severity: 'medium' },
-          { id: 'ALR-003', customer: 'Amit Kumar', amount: 45000, risk_score: 0.35, status: 'open', severity: 'low' }
-        ],
-        customers: [
-          { id: 'CUST-001', name: 'Rahul Sharma', email: 'rahul@example.com', balance: 125000, risk_rating: 'high' },
-          { id: 'CUST-002', name: 'Priya Patel', email: 'priya@example.com', balance: 85000, risk_rating: 'medium' },
-          { id: 'CUST-003', name: 'Amit Kumar', email: 'amit@example.com', balance: 150000, risk_rating: 'low' }
-        ],
-        transactions: {
-          total_today: 125,
-          volume_today: 4500000,
-          flagged_today: 3,
-          fraud_rate: 2.4
-        }
-      };
-      setBranchData(mockData);
-    } catch (err) {
-      setError('Failed to load branch data');
+      const [dashRes, alertRes] = await Promise.allSettled([
+        dashboardService.getFull(),
+        fraudService.listAlerts({ limit: 5, sortDir: 'DESC' }),
+      ]);
+      if (dashRes.status  === 'fulfilled') setData(dashRes.value.data ?? dashRes.value);
+      if (alertRes.status === 'fulfilled') setAlerts(alertRes.value.data?.data ?? []);
+    } catch (e) {
+      setError('Failed to load dashboard data.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchBranchData();
-    }
-  }, [user]);
+  useEffect(() => { load(); }, [load]);
 
-  if (loading) {
-    return <InlineLoader label="Loading branch dashboard..." />;
-  }
+  if (loading) return <InlineLoader label="Loading branch dashboard…" />;
+
+  const summary = data?.summary ?? {};
+  const topCusts = data?.top_customers?.customers ?? [];
+  const recentTxns = data?.activity?.transactions ?? [];
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Branch Operations: {branchData?.branch.name}
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Branch Operations
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Branch code: {branchData?.branch.code} | Manager: {user?.firstName} {user?.lastName}
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Manager: {user?.firstName} {user?.lastName}
           </p>
         </div>
-        <button 
-          onClick={fetchBranchData}
-          className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </button>
+        <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        </Button>
       </div>
 
-      {/* KPI Cards */}
+      <ErrorMessage message={error} />
+
+      {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Total Branch Customers
-            </CardTitle>
-            <Users className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {branchData?.branch.customer_count.toLocaleString()}
-            </div>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              +12 this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Total Deposits
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {fmtAmt(branchData?.branch.total_deposits)}
-            </div>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              across {branchData?.branch.active_accounts} active accounts
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Today's Transactions
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {branchData?.transactions.total_today}
-              </div>
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center">
-                <ArrowUpRight className="h-3 w-3 mr-0.5" />
-                {(branchData?.transactions.fraud_rate || 0).toFixed(1)}%
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {fmtAmt(branchData?.transactions.volume_today)} volume
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Open Alerts
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {branchData?.alerts.filter(a => a.status === 'open').length}
-              </div>
-              <span className="text-xs text-red-600 dark:text-red-400">
-                {branchData?.alerts.filter(a => a.severity === 'high').length} critical
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              need review
-            </p>
-          </CardContent>
-        </Card>
+        {[
+          { label: 'Active Accounts',    value: (summary.accounts?.active ?? '—').toLocaleString(),         sub: 'in branch',                                                Icon: Building2,    cls: 'text-blue-500'    },
+          { label: '30-Day Volume',      value: fmtAmt(summary.transactions?.volume_30d),                   sub: `${summary.transactions?.total_30d ?? 0} transactions`,    Icon: TrendingUp,   cls: 'text-emerald-500' },
+          { label: 'Fraud Rate',         value: `${(summary.fraud?.rate_30d_pct ?? 0).toFixed(2)}%`,        sub: 'last 30 days',                                              Icon: AlertTriangle,cls: (summary.fraud?.rate_30d_pct ?? 0) > 5 ? 'text-red-500' : 'text-amber-500' },
+          { label: 'Open Alerts',        value: summary.alerts?.open ?? '—',                                sub: `${summary.alerts?.critical ?? 0} critical`,               Icon: AlertTriangle,cls: (summary.alerts?.open ?? 0) > 0 ? 'text-red-500' : 'text-green-500' },
+        ].map(({ label, value, sub, Icon, cls }) => (
+          <Card key={label}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</CardTitle>
+              <Icon className={`h-4 w-4 ${cls}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{sub}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Alerts Section */}
+      {/* Fraud alerts */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-sm font-semibold">Active Fraud Alerts</CardTitle>
-          <Link to="/fraud/alerts">
-            <button className="text-xs text-blue-600 hover:underline dark:text-blue-400">
-              View all alerts
-            </button>
-          </Link>
+          <CardTitle className="text-sm font-semibold">Recent Fraud Alerts</CardTitle>
+          <Link to="/fraud/alerts" className="text-xs text-blue-600 hover:underline dark:text-blue-400">View all alerts</Link>
         </CardHeader>
         <CardContent className="p-0">
-          {branchData?.alerts.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
-              No active alerts. Queue is clear!
-            </div>
+          {alerts.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-slate-400">No active alerts. Queue is clear!</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60 text-left">
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Customer</th>
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Amount</th>
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Risk Score</th>
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Severity</th>
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Status</th>
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Actions</th>
+                  <tr className="border-b border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 text-left">
+                    {['Transaction', 'Amount', 'Risk', 'Severity', 'Status', 'Created'].map(h => (
+                      <th key={h} className="px-4 py-2.5 font-semibold uppercase tracking-wide text-slate-500">{h}</th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {branchData?.alerts.map(alert => (
-                    <tr key={alert.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                      <td className="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-200">
-                        {alert.customer}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
-                        {fmtAmt(alert.amount)}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <RiskBadge score={alert.risk_score} />
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          alert.severity === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                          alert.severity === 'medium' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
-                          'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                        }`}>
-                          {alert.severity}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <StatusBadge value={alert.status} />
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex gap-2">
-                          <Link to={`/fraud/alerts/${alert.id}`}>
-                            <button className="text-xs text-blue-600 hover:underline dark:text-blue-400">Review</button>
-                          </Link>
-                          <Link to={`/fraud/alerts/${alert.id}/investigate`}>
-                            <button className="text-xs text-gray-600 hover:underline dark:text-gray-400">Investigate</button>
-                          </Link>
-                        </div>
-                      </td>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {alerts.map(a => (
+                    <tr key={a.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-500">{a.transaction_ref ?? a.id?.slice(0,8)}</td>
+                      <td className="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200">{fmtAmt(a.amount)}</td>
+                      <td className="px-4 py-2.5"><RiskBadge score={a.risk_score} /></td>
+                      <td className="px-4 py-2.5"><StatusBadge value={a.severity} /></td>
+                      <td className="px-4 py-2.5"><StatusBadge value={a.status} /></td>
+                      <td className="px-4 py-2.5 text-slate-400">{fmtDate(a.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -253,53 +131,34 @@ const BranchManagerDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Customers Section */}
+      {/* Recent transactions */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-sm font-semibold">Branch Customers</CardTitle>
-          <Link to="/customers">
-            <button className="text-xs text-blue-600 hover:underline dark:text-blue-400">
-              Manage all
-            </button>
-          </Link>
+          <CardTitle className="text-sm font-semibold">Recent Transactions</CardTitle>
+          <Link to="/transactions" className="text-xs text-blue-600 hover:underline dark:text-blue-400">View all</Link>
         </CardHeader>
         <CardContent className="p-0">
-          {branchData?.customers.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
-              No customers found.
-            </div>
+          {recentTxns.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-slate-400">No recent transactions.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60 text-left">
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Customer</th>
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Email</th>
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Balance</th>
-                    <th className="px-4 py-2.5 font-semibold uppercase tracking-wide text-gray-500">Risk Rating</th>
+                  <tr className="border-b border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 text-left">
+                    {['Ref', 'Amount', 'Type', 'Channel', 'Status', 'Risk'].map(h => (
+                      <th key={h} className="px-4 py-2.5 font-semibold uppercase tracking-wide text-slate-500">{h}</th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {branchData?.customers.map(customer => (
-                    <tr key={customer.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                      <td className="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-200">
-                        {customer.name}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
-                        {customer.email}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
-                        {fmtAmt(customer.balance)}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          customer.risk_rating === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                          customer.risk_rating === 'medium' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
-                          'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                        }`}>
-                          {customer.risk_rating}
-                        </span>
-                      </td>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {recentTxns.map(t => (
+                    <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-500">{t.transaction_ref}</td>
+                      <td className="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200">{fmtAmt(t.amount)}</td>
+                      <td className="px-4 py-2.5 capitalize text-slate-600 dark:text-slate-400">{t.txn_type}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{t.channel ?? '—'}</td>
+                      <td className="px-4 py-2.5"><StatusBadge value={t.status} /></td>
+                      <td className="px-4 py-2.5"><RiskBadge score={t.risk_score} showScore={false} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -309,59 +168,23 @@ const BranchManagerDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
+      {/* Quick actions */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <Link to="/customers">
-          <Card className="cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-3 rounded-full bg-blue-100 p-3 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                  <Users className="h-6 w-6" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Customer Onboarding</h3>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link to="/accounts">
-          <Card className="cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-3 rounded-full bg-emerald-100 p-3 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
-                  <DollarSign className="h-6 w-6" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Accounts</h3>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link to="/fraud/alerts">
-          <Card className="cursor-pointer hover:border-amber-300 dark:hover:border-amber-700 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-3 rounded-full bg-amber-100 p-3 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-                  <AlertTriangle className="h-6 w-6" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Alert Review</h3>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link to="/reports">
-          <Card className="cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-3 rounded-full bg-purple-100 p-3 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
-                  <TrendingUp className="h-6 w-6" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Branch Reports</h3>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+        {[
+          { label: 'Customers',     path: '/branch/customers', Icon: Users,        bg: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'     },
+          { label: 'Accounts',      path: '/branch/accounts',  Icon: Building2,    bg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
+          { label: 'Alert Review',  path: '/fraud/alerts',     Icon: AlertTriangle,bg: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'   },
+          { label: 'Branch Reports',path: '/reports',          Icon: FileText,     bg: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
+        ].map(({ label, path, Icon, bg }) => (
+          <Link key={path} to={path}>
+            <Card className="cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+              <CardContent className="p-6 flex flex-col items-center text-center">
+                <div className={`mb-3 rounded-full p-3 ${bg}`}><Icon className="h-6 w-6" /></div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</h3>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
     </div>
   );
