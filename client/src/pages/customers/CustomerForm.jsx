@@ -12,7 +12,12 @@ import Select          from '@/components/ui/Select';
 import { Button }      from '@/components/ui/button';
 import { FieldError }  from '@/components/ui/ErrorMessage';
 
-const schema = z.object({
+const createSchema = (isEdit) => z.object({
+  firstName    : isEdit ? z.string().optional() : z.string().min(1, 'First name is required'),
+  lastName     : isEdit ? z.string().optional() : z.string().min(1, 'Last name is required'),
+  email        : isEdit ? z.string().optional() : z.string().email('Valid email is required'),
+  phone        : z.string().optional(),
+  password     : z.string().optional(),
   dateOfBirth  : z.string().optional(),
   gender       : z.enum(['male','female','other','prefer_not_to_say','']).optional(),
   nationality  : z.string().max(80).optional(),
@@ -32,6 +37,7 @@ const FIELD = ({ label, error, children }) => (
 );
 
 export const CustomerForm = ({ defaultValues = {}, onSubmit, onCancel, isEdit = false }) => {
+  const schema = createSchema(isEdit);
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
     useForm({ resolver: zodResolver(schema), defaultValues });
 
@@ -45,6 +51,30 @@ export const CustomerForm = ({ defaultValues = {}, onSubmit, onCancel, isEdit = 
 
   return (
     <form onSubmit={handleSubmit(submit)} noValidate className="space-y-4">
+      {!isEdit && (
+        <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 dark:border-blue-900/30 dark:bg-blue-900/10 space-y-3">
+          <p className="text-xs font-semibold text-blue-900 dark:text-blue-300">User Account Information</p>
+          <div className="grid grid-cols-2 gap-3">
+            <FIELD label="First Name *" error={errors.firstName}>
+              <Input placeholder="e.g. John" {...register('firstName')}
+                className="dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            </FIELD>
+            <FIELD label="Last Name *" error={errors.lastName}>
+              <Input placeholder="e.g. Doe" {...register('lastName')}
+                className="dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            </FIELD>
+            <FIELD label="Email Address *" error={errors.email}>
+              <Input type="email" placeholder="john.doe@example.com" {...register('email')}
+                className="dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            </FIELD>
+            <FIELD label="Phone Number" error={errors.phone}>
+              <Input placeholder="+91 98765 43210" {...register('phone')}
+                className="dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            </FIELD>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <FIELD label="Date of Birth" error={errors.dateOfBirth}>
           <Input type="date" {...register('dateOfBirth')}

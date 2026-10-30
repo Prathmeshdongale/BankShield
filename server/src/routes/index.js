@@ -9,10 +9,12 @@ import cardRoutes            from './cardRoutes.js';
 import reportRoutes          from './reportRoutes.js';
 import notificationRoutes    from './notificationRoutes.js';
 import dashboardRoutes       from './dashboardRoutes.js';
+import userRoutes           from './userRoutes.js';
 
 const router = Router();
 
 router.use('/auth',          authRoutes);
+router.use('/users',         userRoutes);
 router.use('/transactions',  transactionRoutes);
 router.use('/fraud',         fraudRoutes);
 router.use('/branches',      branchRoutes);

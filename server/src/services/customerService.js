@@ -24,7 +24,9 @@
 import path          from 'path';
 import { logger }    from '../utils/logger.js';
 import { getClient } from '../db/connection.js';
-import { insertAuditLog } from '../db/queries/authQueries.js';
+import bcrypt from 'bcrypt';
+import { insertAuditLog, findUserByEmail, findRoleByName, createUser } from '../db/queries/authQueries.js';
+const SALT_ROUNDS = 12;
 import {
   nextCustomerNumber,
   findCustomerById,
@@ -59,16 +61,44 @@ const VALID_KYC_STATUSES = ['submitted','verified','rejected','expired'];
  * The user must exist and must not already have a customer record.
  */
 export const createCustomerService = async (fields, meta = {}) => {
-  const { userId } = fields;
+  let { userId } = fields;
 
-  // One customer profile per user
-  const existing = await findCustomerByUserId(userId);
-  if (existing) throw mkErr('CUSTOMER_ALREADY_EXISTS', 409);
+  if (!userId) {
+    if (!fields.email || !fields.firstName || !fields.lastName) {
+      throw mkErr('USER_DETAILS_REQUIRED', 422);
+    }
+
+    const existingUser = await findUserByEmail(fields.email);
+    if (existingUser) {
+      const existingCust = await findCustomerByUserId(existingUser.id);
+      if (existingCust) throw mkErr('CUSTOMER_ALREADY_EXISTS', 409);
+      userId = existingUser.id;
+    } else {
+      const role = await findRoleByName('customer');
+      if (!role) throw mkErr('ROLE_NOT_FOUND', 500);
+
+      const password = fields.password || 'Customer@123!';
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      const newUser = await createUser({
+        email: fields.email,
+        phone: fields.phone ?? null,
+        passwordHash,
+        firstName: fields.firstName,
+        lastName: fields.lastName,
+        roleId: role.id,
+      });
+      userId = newUser.id;
+    }
+  } else {
+    // One customer profile per user
+    const existing = await findCustomerByUserId(userId);
+    if (existing) throw mkErr('CUSTOMER_ALREADY_EXISTS', 409);
+  }
 
   // Generate unique customer number (uses DB sequence)
   const customerNumber = await nextCustomerNumber();
 
-  const customer = await dbCreateCustomer({ ...fields, customerNumber });
+  const customer = await dbCreateCustomer({ ...fields, userId, customerNumber });
 
   await insertAuditLog({
     userId    : meta.actorId,

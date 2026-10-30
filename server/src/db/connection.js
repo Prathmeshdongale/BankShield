@@ -8,7 +8,7 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: false,
   max: 10,
   // Neon free-tier drops idle connections after ~5 min.
   // Keep idle timeout well under that so the pool recycles

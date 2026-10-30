@@ -65,14 +65,14 @@ function createPool() {
     log.error('DATABASE_URL is not set. Check server/.env');
     process.exit(1);
   }
-  return new Pool({
+return new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl             : { rejectUnauthorized: false },
+    ssl             : false,
     max             : 3,
     connectionTimeoutMillis: 60_000,
     idleTimeoutMillis      : 60_000,
     statement_timeout      : 120_000,
-  });
+});
 }
 
 // ── ensure the tracking table exists ─────────────────────────────────────

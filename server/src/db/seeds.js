@@ -381,7 +381,7 @@ async function main() {
 
   const pool = new Pool({
     connectionString       : process.env.DATABASE_URL,
-    ssl                    : { rejectUnauthorized: false },
+    ssl                    : false,
     max                    : 5,
     connectionTimeoutMillis: 60_000,
     idleTimeoutMillis      : 60_000,

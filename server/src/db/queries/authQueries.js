@@ -29,6 +29,13 @@ const run = (client, text, params) =>
  * Find a user by email with role name joined.
  * Returns null when not found.
  */
+export const findUserByPhone = async (phone, client = null) => {
+  const { rows } = await run(client, `
+    SELECT id, email, phone FROM users WHERE phone = $1 AND deleted_at IS NULL LIMIT 1;
+  `, [phone]);
+  return rows[0] ?? null;
+};
+
 export const findUserByEmail = async (email, client = null) => {
   const sql = `
     SELECT
@@ -309,6 +316,62 @@ export const findPasswordResetToken = async (tokenHash, client = null) => {
 export const markResetTokenUsed = async (id, client = null) => {
   await run(client, `UPDATE password_reset_tokens SET used = TRUE WHERE id = $1;`, [id]);
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOGIN OTPs (Super Admin Email OTP Login)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Ensure login_otps table exists. */
+export const ensureLoginOtpTable = async (client = null) => {
+  await run(client, `
+    CREATE TABLE IF NOT EXISTS login_otps (
+      id          BIGSERIAL    PRIMARY KEY,
+      email       VARCHAR(255) NOT NULL,
+      otp_code    VARCHAR(10)  NOT NULL,
+      expires_at  TIMESTAMPTZ  NOT NULL,
+      used        BOOLEAN      NOT NULL DEFAULT FALSE,
+      created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_login_otps_email ON login_otps(email);
+  `, []);
+};
+
+/** Invalidate old unused OTPs for this email, then insert a new one. */
+export const saveLoginOtp = async (email, otpCode, ttlMinutes = 10, client = null) => {
+  await run(client, `
+    UPDATE login_otps
+    SET    used = TRUE
+    WHERE  email = $1 AND used = FALSE;
+  `, [email]);
+
+  const { rows } = await run(client, `
+    INSERT INTO login_otps (email, otp_code, expires_at)
+    VALUES ($1, $2, NOW() + ($3 || ' minutes')::INTERVAL)
+    RETURNING id, email, otp_code, expires_at;
+  `, [email, otpCode, ttlMinutes]);
+  return rows[0];
+};
+
+/** Find a valid (unused, not expired) OTP for an email. */
+export const findValidLoginOtp = async (email, otpCode, client = null) => {
+  const { rows } = await run(client, `
+    SELECT id, email, otp_code, expires_at
+    FROM   login_otps
+    WHERE  email      = $1
+      AND  otp_code   = $2
+      AND  used       = FALSE
+      AND  expires_at > NOW()
+    ORDER  BY created_at DESC
+    LIMIT  1;
+  `, [email, otpCode]);
+  return rows[0] ?? null;
+};
+
+/** Mark an OTP as used. */
+export const markLoginOtpUsed = async (id, client = null) => {
+  await run(client, `UPDATE login_otps SET used = TRUE WHERE id = $1;`, [id]);
+};
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PASSWORD / PROFILE UPDATES

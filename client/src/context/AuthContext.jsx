@@ -2,12 +2,14 @@
  * AuthContext.jsx — Authentication state for the entire app.
  *
  * Provides:
- *   user          — { id, email, role, name, permissions, ... } | null
- *   isAuthenticated  — boolean
- *   isLoading     — true while restoring session on mount
- *   login(email, password) → Promise
- *   logout(logoutAll?)     → Promise
- *   refreshUser()          → re-fetches /auth/me and updates state
+ *   user                   — { id, email, role, name, permissions, ... } | null
+ *   isAuthenticated       — boolean
+ *   isLoading              — true while restoring session on mount
+ *   login(email, password) — Promise
+ *   loginWithOtp(email, otp) — Promise
+ *   registerCustomer(data) — Promise
+ *   logout(logoutAll?)     — Promise
+ *   refreshUser()          — re-fetches /auth/me and updates state
  *
  * Session is restored from tokenStore on mount by calling GET /auth/me.
  * If the token is expired but a refresh token exists, the Axios interceptor
@@ -67,6 +69,32 @@ export const AuthProvider = ({ children }) => {
     return profile;
   }, []);
 
+  // ── loginWithOtp (Super Admin) ──────────────────────────────────────────────
+  const loginWithOtp = useCallback(async (email, otp) => {
+    const res = await authService.verifySuperAdminOtp(email, otp);
+    const { user: profile, accessToken, refreshToken } = res.data;
+
+    tokenStore.setTokens(accessToken, refreshToken);
+    tokenStore.setUser(profile);
+    setUser(profile);
+
+    toast.success(`Super Admin logged in successfully! Welcome, ${profile.firstName}!`);
+    return profile;
+  }, []);
+
+  // ── registerCustomer ────────────────────────────────────────────────────────
+  const registerCustomer = useCallback(async (data) => {
+    const res = await authService.registerCustomer(data);
+    const { user: profile, accessToken, refreshToken } = res.data;
+
+    tokenStore.setTokens(accessToken, refreshToken);
+    tokenStore.setUser(profile);
+    setUser(profile);
+
+    toast.success(`Account created! Welcome to BankShield, ${profile.firstName}!`);
+    return profile;
+  }, []);
+
   // ── logout ──────────────────────────────────────────────────────────────────
   const logout = useCallback(async (logoutAll = false) => {
     try {
@@ -120,6 +148,8 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated : !!user,
       isLoading,
       login,
+      loginWithOtp,
+      registerCustomer,
       logout,
       refreshUser,
       hasRole,

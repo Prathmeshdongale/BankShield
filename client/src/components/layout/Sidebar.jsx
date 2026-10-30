@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, ShieldCheck, Activity,
   CreditCard, TrendingUp, AlertTriangle, FileText,
   Settings, Cpu, Lock, LogOut, UserCheck,
-  BarChart2, Search, Bell, Home, ArrowLeftRight,
+  Search, Bell, Home, ArrowLeftRight, Landmark,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -16,6 +16,7 @@ const NAVIGATION = {
   customer: [
     { id: 'dashboard',    label: 'Dashboard',       icon: Home,           path: '/'                   },
     { id: 'accounts',     label: 'My Accounts',      icon: CreditCard,     path: '/portal/accounts'    },
+    { id: 'cards',        label: 'My Cards',         icon: CreditCard,     path: '/portal/cards'       },
     { id: 'transactions', label: 'My Transactions',  icon: TrendingUp,     path: '/portal/transactions'},
     { id: 'transfer',     label: 'Transfers',         icon: ArrowLeftRight, path: '/transfer'           },
     { id: 'alerts',       label: 'Security Alerts',  icon: AlertTriangle,  path: '/portal/alerts'      },
@@ -47,10 +48,11 @@ const NAVIGATION = {
   super_admin: [
     { id: 'dashboard',  label: 'System Overview',  icon: LayoutDashboard, path: '/'                   },
     { id: 'users',      label: 'User Management',  icon: Users,           path: '/admin/users'        },
+    { id: 'branches',   label: 'Branches',         icon: Landmark,        path: '/admin/branches'     },
     { id: 'settings',   label: 'System Settings',  icon: Settings,        path: '/admin/settings'     },
     { id: 'audit_logs', label: 'Security & Audit', icon: Lock,            path: '/admin/audit-logs'   },
     { id: 'ml_status',  label: 'ML Model Status',  icon: Cpu,             path: '/ml/status'          },
-    { id: 'api_health', label: 'API & Health',     icon: Activity,        path: '/health'             },
+    { id: 'api_health', label: 'API & Health',     icon: Activity,        path: '/admin/settings'     },
     { id: 'logout',     label: 'Logout',            icon: LogOut,          path: '/logout'             },
   ],
 };

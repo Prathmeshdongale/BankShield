@@ -9,6 +9,15 @@ export const authService = {
   login: (credentials) =>
     api.post('/auth/login', credentials).then(r => r.data),
 
+  registerCustomer: (data) =>
+    api.post('/auth/register-customer', data).then(r => r.data),
+
+  sendSuperAdminOtp: (email) =>
+    api.post('/auth/superadmin/send-otp', { email }).then(r => r.data),
+
+  verifySuperAdminOtp: (email, otp) =>
+    api.post('/auth/superadmin/verify-otp', { email, otp }).then(r => r.data),
+
   logout: (refreshToken, logoutAll = false) =>
     api.post('/auth/logout', { refreshToken, logoutAll }).then(r => r.data),
 

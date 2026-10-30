@@ -247,3 +247,45 @@ export const updateProfileValidator = [
   body('roleName').not().exists().withMessage('Role cannot be changed via this endpoint.'),
   body('password').not().exists().withMessage('Use /change-password to update your password.'),
 ];
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. REGISTER CUSTOMER (PUBLIC)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const registerCustomerValidator = [
+  emailField(),
+  passwordField(),
+  body('firstName')
+    .trim()
+    .notEmpty().withMessage('First name is required.')
+    .isLength({ min: 1, max: 100 }).withMessage('First name must be 1–100 characters.')
+    .matches(/^[A-Za-z\s'-]+$/).withMessage('First name contains invalid characters.'),
+  body('lastName')
+    .trim()
+    .notEmpty().withMessage('Last name is required.')
+    .isLength({ min: 1, max: 100 }).withMessage('Last name must be 1–100 characters.')
+    .matches(/^[A-Za-z\s'-]+$/).withMessage('Last name contains invalid characters.'),
+  body('phone')
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isMobilePhone('any', { strictMode: false })
+    .withMessage('Must be a valid phone number.'),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. SUPER ADMIN OTP
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const sendSuperAdminOtpValidator = [
+  emailField(),
+];
+
+export const verifySuperAdminOtpValidator = [
+  emailField(),
+  body('otp')
+    .trim()
+    .notEmpty().withMessage('OTP is required.')
+    .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits.')
+    .isNumeric().withMessage('OTP must contain only numbers.'),
+];

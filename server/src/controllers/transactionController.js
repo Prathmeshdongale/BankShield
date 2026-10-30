@@ -2,24 +2,32 @@
  * transactionController.js — HTTP handlers for the transaction module.
  *
  * Error code → HTTP status:
- *   SOURCE_ACCOUNT_NOT_FOUND   404
- *   DEST_ACCOUNT_NOT_FOUND     404
- *   CARD_NOT_FOUND             404
- *   TRANSACTION_NOT_FOUND      404
- *   SOURCE_ACCOUNT_NOT_ACTIVE  409
- *   DEST_ACCOUNT_NOT_ACTIVE    409
- *   CARD_NOT_ACTIVE            409
- *   INSUFFICIENT_FUNDS         422
- *   CARD_LIMIT_EXCEEDED        422
- *   SAME_ACCOUNT_TRANSFER      400
- *   INVALID_CHANNEL            400
- *   CARD_REQUIRED              400
+ *   SOURCE_ACCOUNT_NOT_FOUND        404
+ *   DEST_ACCOUNT_NOT_FOUND          404
+ *   CARD_NOT_FOUND                  404
+ *   TRANSACTION_NOT_FOUND           404
+ *   SOURCE_ACCOUNT_NOT_ACTIVE       409
+ *   DEST_ACCOUNT_NOT_ACTIVE         409
+ *   CARD_NOT_ACTIVE                 409
+ *   TRANSACTION_ALREADY_REVERSED    409
+ *   INSUFFICIENT_FUNDS              422
+ *   CARD_LIMIT_EXCEEDED             422
+ *   TRANSACTION_CANNOT_BE_REVERSED  422
+ *   INSUFFICIENT_FUNDS_FOR_REVERSAL 422
+ *   SAME_ACCOUNT_TRANSFER           400
+ *   INVALID_CHANNEL                 400
+ *   CARD_REQUIRED                   400
  */
 
 import {
+  depositService,
+  withdrawService,
   transferService,
   cardPaymentService,
   upiPaymentService,
+  atmWithdrawalService,
+  onlinePaymentService,
+  reverseTransactionService,
   getTransactionService,
   listTransactionsService,
 } from '../services/transactionService.js';
@@ -40,33 +48,39 @@ const getMeta = (req) => ({
 });
 
 const STATUS_MAP = {
-  SOURCE_ACCOUNT_NOT_FOUND  : 404,
-  DEST_ACCOUNT_NOT_FOUND    : 404,
-  CARD_NOT_FOUND            : 404,
-  TRANSACTION_NOT_FOUND     : 404,
-  SOURCE_ACCOUNT_NOT_ACTIVE : 409,
-  DEST_ACCOUNT_NOT_ACTIVE   : 409,
-  CARD_NOT_ACTIVE           : 409,
-  INSUFFICIENT_FUNDS        : 422,
-  CARD_LIMIT_EXCEEDED       : 422,
-  SAME_ACCOUNT_TRANSFER     : 400,
-  INVALID_CHANNEL           : 400,
-  CARD_REQUIRED             : 400,
+  SOURCE_ACCOUNT_NOT_FOUND        : 404,
+  DEST_ACCOUNT_NOT_FOUND          : 404,
+  CARD_NOT_FOUND                  : 404,
+  TRANSACTION_NOT_FOUND           : 404,
+  SOURCE_ACCOUNT_NOT_ACTIVE       : 409,
+  DEST_ACCOUNT_NOT_ACTIVE         : 409,
+  CARD_NOT_ACTIVE                 : 409,
+  TRANSACTION_ALREADY_REVERSED    : 409,
+  INSUFFICIENT_FUNDS              : 422,
+  CARD_LIMIT_EXCEEDED             : 422,
+  TRANSACTION_CANNOT_BE_REVERSED  : 422,
+  INSUFFICIENT_FUNDS_FOR_REVERSAL : 422,
+  SAME_ACCOUNT_TRANSFER           : 400,
+  INVALID_CHANNEL                 : 400,
+  CARD_REQUIRED                   : 400,
 };
 
 const USER_MESSAGES = {
-  SOURCE_ACCOUNT_NOT_FOUND  : 'Source account not found.',
-  DEST_ACCOUNT_NOT_FOUND    : 'Destination account not found.',
-  CARD_NOT_FOUND            : 'Card not found.',
-  TRANSACTION_NOT_FOUND     : 'Transaction not found.',
-  SOURCE_ACCOUNT_NOT_ACTIVE : 'Source account is not active.',
-  DEST_ACCOUNT_NOT_ACTIVE   : 'Destination account is not active (frozen or closed).',
-  CARD_NOT_ACTIVE           : 'Card is not active.',
-  INSUFFICIENT_FUNDS        : 'Insufficient funds in the source account.',
-  CARD_LIMIT_EXCEEDED       : 'Card spending limit exceeded.',
-  SAME_ACCOUNT_TRANSFER     : 'Source and destination accounts must be different.',
-  INVALID_CHANNEL           : 'Invalid channel for this transaction type.',
-  CARD_REQUIRED             : 'A card is required for this transaction type.',
+  SOURCE_ACCOUNT_NOT_FOUND        : 'Source account not found.',
+  DEST_ACCOUNT_NOT_FOUND          : 'Destination account not found.',
+  CARD_NOT_FOUND                  : 'Card not found.',
+  TRANSACTION_NOT_FOUND           : 'Transaction not found.',
+  SOURCE_ACCOUNT_NOT_ACTIVE       : 'Source account is not active.',
+  DEST_ACCOUNT_NOT_ACTIVE         : 'Destination account is not active (frozen or closed).',
+  CARD_NOT_ACTIVE                 : 'Card is not active.',
+  TRANSACTION_ALREADY_REVERSED    : 'This transaction has already been reversed.',
+  INSUFFICIENT_FUNDS              : 'Insufficient funds in the source account.',
+  CARD_LIMIT_EXCEEDED             : 'Card spending limit exceeded.',
+  TRANSACTION_CANNOT_BE_REVERSED  : 'Only completed transactions can be reversed.',
+  INSUFFICIENT_FUNDS_FOR_REVERSAL : 'Insufficient funds in the destination account to reverse this transaction.',
+  SAME_ACCOUNT_TRANSFER           : 'Source and destination accounts must be different.',
+  INVALID_CHANNEL                 : 'Invalid channel for this transaction type.',
+  CARD_REQUIRED                   : 'A card is required for this transaction type.',
 };
 
 const handleErr = (err, res) => {
@@ -86,14 +100,41 @@ const handleErr = (err, res) => {
 // Wrap result to signal idempotent replay with 200 instead of 201
 const txnResponse = (res, result, msg) =>
   result.duplicate
-    ? success(res, { transaction: result.transaction, duplicate: true },  `${msg} (idempotent replay).`, 200)
+    ? success(res, { transaction: result.transaction, duplicate: true }, `${msg} (idempotent replay).`, 200)
     : success(res, {
         transaction : result.transaction,
         duplicate   : false,
+        blocked     : result.blocked ?? false,
         fraud       : result.fraud ?? null,
       }, msg, 201);
 
 // ── handlers ──────────────────────────────────────────────────────────────────
+
+/** POST /api/transactions/deposit */
+export const deposit = async (req, res) => {
+  try {
+    const { accountId, amount, currency, channel, description, idempotencyKey } = req.body;
+    const result = await depositService(
+      { accountId, amount, currency, channel, description, idempotencyKey },
+      getMeta(req)
+    );
+    return txnResponse(res, result, 'Deposit processed.');
+  } catch (err) { return handleErr(err, res); }
+};
+
+/** POST /api/transactions/withdraw */
+export const withdraw = async (req, res) => {
+  try {
+    const { accountId, amount, currency, channel, description, cardId, idempotencyKey } = req.body;
+    const result = await withdrawService(
+      { accountId, amount, currency, channel, description, cardId, idempotencyKey },
+      getMeta(req)
+    );
+    return txnResponse(res, result, 'Withdrawal processed.');
+  } catch (err) { return handleErr(err, res); }
+};
+
+export const withdrawal = withdraw;
 
 /** POST /api/transactions/transfer */
 export const transfer = async (req, res) => {
@@ -137,6 +178,45 @@ export const upiPayment = async (req, res) => {
   } catch (err) { return handleErr(err, res); }
 };
 
+/** POST /api/transactions/atm */
+export const atmWithdrawal = async (req, res) => {
+  try {
+    const { accountId, cardId, amount, currency, locationCity, idempotencyKey } = req.body;
+    const result = await atmWithdrawalService(
+      { accountId, cardId, amount, currency, locationCity, idempotencyKey },
+      getMeta(req)
+    );
+    return txnResponse(res, result, 'ATM withdrawal processed.');
+  } catch (err) { return handleErr(err, res); }
+};
+
+/** POST /api/transactions/online */
+export const onlinePayment = async (req, res) => {
+  try {
+    const { accountId, cardId, amount, currency, channel,
+            merchantName, merchantCategory, description, idempotencyKey } = req.body;
+    const result = await onlinePaymentService(
+      { accountId, cardId, amount, currency, channel,
+        merchantName, merchantCategory, description, idempotencyKey },
+      getMeta(req)
+    );
+    return txnResponse(res, result, 'Online payment processed.');
+  } catch (err) { return handleErr(err, res); }
+};
+
+/** POST /api/transactions/:id/reverse */
+export const reverseTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const result = await reverseTransactionService(
+      { transactionId: id, reason },
+      getMeta(req)
+    );
+    return success(res, result, 'Transaction reversed successfully.', 200);
+  } catch (err) { return handleErr(err, res); }
+};
+
 /** GET /api/transactions/:idOrRef */
 export const getTransaction = async (req, res) => {
   try {
@@ -157,7 +237,7 @@ export const listTransactions = async (req, res) => {
 export const initiateTransfer = transfer;
 
 export default {
-  transfer, cardPayment, upiPayment,
-  getTransaction, listTransactions,
-  initiateTransfer,
+  deposit, withdraw, withdrawal, transfer, cardPayment, upiPayment,
+  atmWithdrawal, onlinePayment, reverseTransaction,
+  getTransaction, listTransactions, initiateTransfer,
 };

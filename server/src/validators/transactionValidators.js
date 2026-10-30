@@ -1,6 +1,5 @@
 /**
- * transactionValidators.js — express-validator chains for transaction endpoints.
- * Only transfer, card-payment, and UPI are exposed via the API.
+ * transactionValidators.js — express-validator chains for all transaction endpoints.
  */
 
 import { body, param, query } from 'express-validator';
@@ -18,12 +17,34 @@ const amountBody = (n = 'amount') =>
     .isFloat({ min: 0.01 }).withMessage(`${n} must be a positive number ≥ 0.01.`)
     .toFloat();
 
+// ─── shared idempotency field ─────────────────────────────────────────────────
 const idempotencyField = body('idempotencyKey')
   .optional({ nullable: true }).trim()
   .isString().withMessage('idempotencyKey must be a string.')
   .isLength({ min: 1, max: 128 }).withMessage('idempotencyKey must be 1–128 characters.');
 
-// ─── 1. TRANSFER ──────────────────────────────────────────────────────────────
+// ─── 1. DEPOSIT ───────────────────────────────────────────────────────────────
+export const depositValidator = [
+  uuidBody('accountId').notEmpty().withMessage('accountId is required.'),
+  amountBody(),
+  body('currency').optional().trim().isLength({ min: 3, max: 3 }).withMessage('currency must be a 3-letter code.'),
+  body('channel').optional().isIn(['branch','neft','rtgs','imps','api']).withMessage('Invalid deposit channel.'),
+  body('description').optional({ nullable: true }).trim().isLength({ max: 500 }),
+  idempotencyField,
+];
+
+// ─── 2. WITHDRAWAL ────────────────────────────────────────────────────────────
+export const withdrawValidator = [
+  uuidBody('accountId').notEmpty().withMessage('accountId is required.'),
+  amountBody(),
+  body('currency').optional().trim().isLength({ min: 3, max: 3 }),
+  body('channel').optional().isIn(['branch','atm','api']).withMessage('Invalid withdrawal channel.'),
+  body('cardId').optional({ nullable: true }).isUUID(4).withMessage('cardId must be a valid UUID v4.'),
+  body('description').optional({ nullable: true }).trim().isLength({ max: 500 }),
+  idempotencyField,
+];
+
+// ─── 3. TRANSFER ──────────────────────────────────────────────────────────────
 export const transferValidator = [
   uuidBody('sourceAccountId').notEmpty().withMessage('sourceAccountId is required.'),
   uuidBody('destinationAccountId').notEmpty().withMessage('destinationAccountId is required.'),
@@ -39,7 +60,7 @@ export const transferValidator = [
   }),
 ];
 
-// ─── 2. CARD PAYMENT ─────────────────────────────────────────────────────────
+// ─── 4. CARD PAYMENT ─────────────────────────────────────────────────────────
 export const cardPaymentValidator = [
   uuidBody('accountId').notEmpty().withMessage('accountId is required.'),
   uuidBody('cardId').notEmpty().withMessage('cardId is required.'),
@@ -52,7 +73,7 @@ export const cardPaymentValidator = [
   idempotencyField,
 ];
 
-// ─── 3. UPI PAYMENT ──────────────────────────────────────────────────────────
+// ─── 5. UPI PAYMENT ──────────────────────────────────────────────────────────
 export const upiPaymentValidator = [
   uuidBody('sourceAccountId').notEmpty().withMessage('sourceAccountId is required.'),
   body('destinationAccountId').optional({ nullable: true }).isUUID(4).withMessage('destinationAccountId must be a valid UUID v4.'),
@@ -63,7 +84,36 @@ export const upiPaymentValidator = [
   idempotencyField,
 ];
 
-// ─── 4. GET TRANSACTION ───────────────────────────────────────────────────────
+// ─── 6. ATM WITHDRAWAL ───────────────────────────────────────────────────────
+export const atmWithdrawalValidator = [
+  uuidBody('accountId').notEmpty().withMessage('accountId is required.'),
+  uuidBody('cardId').notEmpty().withMessage('cardId is required.'),
+  amountBody(),
+  body('currency').optional().trim().isLength({ min: 3, max: 3 }),
+  body('locationCity').optional({ nullable: true }).trim().isLength({ max: 100 }),
+  idempotencyField,
+];
+
+// ─── 7. ONLINE PAYMENT ───────────────────────────────────────────────────────
+export const onlinePaymentValidator = [
+  uuidBody('accountId').notEmpty().withMessage('accountId is required.'),
+  uuidBody('cardId').notEmpty().withMessage('cardId is required.'),
+  amountBody(),
+  body('currency').optional().trim().isLength({ min: 3, max: 3 }),
+  body('channel').optional().isIn(['web','mobile']).withMessage('Online payment channel must be web or mobile.'),
+  body('merchantName').optional({ nullable: true }).trim().isLength({ max: 150 }),
+  body('merchantCategory').optional({ nullable: true }).trim().isLength({ max: 80 }),
+  body('description').optional({ nullable: true }).trim().isLength({ max: 500 }),
+  idempotencyField,
+];
+
+// ─── 8. REVERSE TRANSACTION ──────────────────────────────────────────────────
+export const reverseTransactionValidator = [
+  uuidParam('id'),
+  body('reason').optional({ nullable: true }).trim().isString().isLength({ max: 255 }).withMessage('reason must be ≤ 255 characters.'),
+];
+
+// ─── 9. GET TRANSACTION ───────────────────────────────────────────────────────
 export const getTransactionValidator = [
   param('idOrRef')
     .trim().notEmpty().withMessage('Transaction id or ref is required.')
@@ -75,7 +125,7 @@ export const getTransactionValidator = [
     }),
 ];
 
-// ─── 5. LIST TRANSACTIONS ─────────────────────────────────────────────────────
+// ─── 10. LIST TRANSACTIONS ────────────────────────────────────────────────────
 export const listTransactionsValidator = [
   query('accountId').optional().isUUID(4).withMessage('accountId must be a valid UUID v4.'),
   query('customerId').optional().isUUID(4).withMessage('customerId must be a valid UUID v4.'),

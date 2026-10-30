@@ -29,6 +29,9 @@ import {
   resetPasswordValidator,
   changePasswordValidator,
   updateProfileValidator,
+  registerCustomerValidator,
+  sendSuperAdminOtpValidator,
+  verifySuperAdminOtpValidator,
 } from '../validators/authValidators.js';
 import {
   register,
@@ -40,6 +43,9 @@ import {
   changePasswordHandler,
   getProfileHandler,
   updateProfileHandler,
+  sendSuperAdminOtpHandler,
+  verifySuperAdminOtpHandler,
+  registerCustomerHandler,
 } from '../controllers/authController.js';
 
 const router = Router();
@@ -97,6 +103,42 @@ router.post(
  * POST /api/auth/login
  * Public — authenticate and receive JWT pair.
  */
+/**
+ * POST /api/auth/register-customer
+ * Public — customer self-registration with automatic savings account creation.
+ */
+router.post(
+  '/register-customer',
+  authLimiter,
+  ...registerCustomerValidator,
+  validate,
+  registerCustomerHandler
+);
+
+/**
+ * POST /api/auth/superadmin/send-otp
+ * Public — triggers a 6-digit OTP sent to superadmin's email.
+ */
+router.post(
+  '/superadmin/send-otp',
+  authLimiter,
+  ...sendSuperAdminOtpValidator,
+  validate,
+  sendSuperAdminOtpHandler
+);
+
+/**
+ * POST /api/auth/superadmin/verify-otp
+ * Public — verifies superadmin OTP and logs in.
+ */
+router.post(
+  '/superadmin/verify-otp',
+  authLimiter,
+  ...verifySuperAdminOtpValidator,
+  validate,
+  verifySuperAdminOtpHandler
+);
+
 router.post(
   '/login',
   authLimiter,

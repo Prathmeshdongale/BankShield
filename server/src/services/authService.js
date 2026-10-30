@@ -26,6 +26,7 @@ import { logger }      from '../utils/logger.js';
 import { getClient }   from '../db/connection.js';
 import {
   findUserByEmail,
+  findUserByPhone,
   findUserById,
   findRoleByName,
   createUser,
@@ -44,8 +45,13 @@ import {
   updatePassword,
   updateUserProfile,
   getPermissionsForRole,
+  ensureLoginOtpTable,
+  saveLoginOtp,
+  findValidLoginOtp,
+  markLoginOtpUsed,
   insertAuditLog,
 } from '../db/queries/authQueries.js';
+import { sendSuperAdminOtpEmail } from './emailService.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -83,6 +89,7 @@ const signAccessToken = (payload) =>
     expiresIn : config.jwt.expiresIn,   // '15m'
     issuer    : 'bankshield',
     audience  : 'bankshield-client',
+    jwtid     : crypto.randomUUID(),
   });
 
 /** Sign a refresh token (7d). */
@@ -91,6 +98,7 @@ const signRefreshToken = (payload) =>
     expiresIn : config.jwt.refreshExpiresIn,  // '7d'
     issuer    : 'bankshield',
     audience  : 'bankshield-client',
+    jwtid     : crypto.randomUUID(),
   });
 
 /** Build the safe public user object returned in API responses. */
@@ -128,6 +136,7 @@ const detectDevice = (ua = '') => {
 export const initAuthTables = async () => {
   await ensureRefreshTokensTable();
   await ensurePasswordResetTable();
+  await ensureLoginOtpTable();
   logger.info('Auth runtime tables verified.');
 };
 
@@ -154,6 +163,14 @@ export const registerUser = async (
 ) => {
   // 1. Check email not already taken
   const existing = await findUserByEmail(email);
+  if (phone) {
+    const existingPhone = await findUserByPhone(phone);
+    if (existingPhone) {
+      const err = new Error('PHONE_TAKEN');
+      err.statusCode = 409;
+      throw err;
+    }
+  }
   if (existing) {
     const err = new Error('EMAIL_TAKEN');
     err.statusCode = 409;
@@ -264,6 +281,13 @@ export const loginUser = async ({ email, password }, meta = {}) => {
     const err = new Error('ACCOUNT_LOCKED');
     err.statusCode = 423;
     err.lockedUntil = user.locked_until;
+    throw err;
+  }
+
+  // 4b. Super Admin must log in via OTP
+  if (user.role === 'super_admin') {
+    const err = new Error('SUPERADMIN_OTP_REQUIRED');
+    err.statusCode = 403;
     throw err;
   }
 
@@ -609,4 +633,242 @@ export const getProfile = async (userId) => {
   }
   const permissions = await getPermissionsForRole(user.role_id);
   return publicUser(user, permissions);
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPER ADMIN OTP LOGIN
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Send an OTP code to super_admin's email.
+ */
+export const sendSuperAdminOtp = async (email) => {
+  const user = await findUserByEmail(email);
+  if (!user) {
+    const err = new Error('USER_NOT_FOUND');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (user.role !== 'super_admin') {
+    const err = new Error('SUPERADMIN_ONLY');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (!user.is_active || user.deleted_at) {
+    const err = new Error('ACCOUNT_INACTIVE');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    const err = new Error('ACCOUNT_LOCKED');
+    err.statusCode = 423;
+    err.lockedUntil = user.locked_until;
+    throw err;
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  await saveLoginOtp(email, otp, 10);
+  await sendSuperAdminOtpEmail(email, otp);
+
+  return {
+    email,
+    message: 'OTP sent to super admin email successfully.',
+    devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+  };
+};
+
+/**
+ * Verify super admin OTP and log in.
+ */
+export const verifySuperAdminOtp = async ({ email, otp }, meta = {}) => {
+  const ip     = meta.ipAddress ?? null;
+  const ua     = meta.userAgent ?? '';
+  const device = detectDevice(ua);
+
+  const user = await findUserByEmail(email);
+  if (!user || user.role !== 'super_admin') {
+    const err = new Error('INVALID_CREDENTIALS');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  if (!user.is_active || user.deleted_at) {
+    const err = new Error('ACCOUNT_INACTIVE');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    const err = new Error('ACCOUNT_LOCKED');
+    err.statusCode = 423;
+    err.lockedUntil = user.locked_until;
+    throw err;
+  }
+
+  const validOtp = await findValidLoginOtp(email, otp);
+  if (!validOtp) {
+    await recordFailedLogin(user.id, MAX_LOGIN_ATTEMPTS, LOCKOUT_MINUTES);
+    await insertLoginHistory({
+      userId: user.id,
+      ipAddress: ip,
+      userAgent: ua,
+      deviceType: device,
+      status: 'failed',
+      failureReason: 'INVALID_OR_EXPIRED_OTP',
+    });
+    const err = new Error('INVALID_OTP');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  await markLoginOtpUsed(validOtp.id);
+  await recordSuccessfulLogin(user.id);
+  await insertLoginHistory({
+    userId: user.id,
+    ipAddress: ip,
+    userAgent: ua,
+    deviceType: device,
+    status: 'success',
+  });
+
+  const permissions = await getPermissionsForRole(user.role_id);
+  const payload     = buildJwtPayload(user);
+  const accessToken = signAccessToken(payload);
+  const refreshToken= signRefreshToken(payload);
+
+  const tokenHash   = hashToken(refreshToken);
+  await saveRefreshToken({
+    userId: user.id,
+    tokenHash,
+    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+  });
+
+  await insertAuditLog({
+    userId: user.id,
+    action: 'SUPERADMIN_OTP_LOGIN_SUCCESS',
+    entityType: 'user',
+    entityId: user.id,
+    ipAddress: ip,
+    userAgent: ua,
+    status: 'success',
+  });
+
+  return {
+    user: publicUser(user, permissions),
+    accessToken,
+    refreshToken,
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER SELF-REGISTRATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Register a normal user as a customer, create initial savings account, and auto-login.
+ */
+export const registerCustomer = async (
+  { email, password, firstName, lastName, phone = null },
+  meta = {}
+) => {
+  const ip     = meta.ipAddress ?? null;
+  const ua     = meta.userAgent ?? '';
+  const device = detectDevice(ua);
+
+  // 1. Check email uniqueness
+  const existing = await findUserByEmail(email);
+  if (existing) {
+    const err = new Error('EMAIL_TAKEN');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // 2. Resolve 'customer' role
+  const role = await findRoleByName('customer');
+  if (!role || !role.is_active) {
+    const err = new Error('INVALID_ROLE');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    // 3. Create user
+    const user = await createUser({
+      email,
+      phone,
+      passwordHash,
+      firstName,
+      lastName,
+      roleId: role.id,
+    }, client);
+
+    // 4. Create customer record
+    const custNum = 'CUST-' + Math.floor(10000000 + Math.random() * 90000000);
+    const custRes = await client.query(`
+      INSERT INTO customers (user_id, customer_number, risk_rating, segment)
+      VALUES ($1, $2, 'low', 'retail')
+      RETURNING id, customer_number;
+    `, [user.id, custNum]);
+    const customer = custRes.rows[0];
+
+    // 5. Create initial active savings account with ₹25,000 balance
+    const accTypeRes = await client.query(`SELECT id FROM account_types WHERE type_name = 'savings' LIMIT 1`);
+    const accountTypeId = accTypeRes.rows[0]?.id || 1;
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const accNum = `ACC-${dateStr}-${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const initialDeposit = 25000.00;
+
+    await client.query(`
+      INSERT INTO accounts (account_number, customer_id, account_type_id, currency, balance, available_balance, status)
+      VALUES ($1, $2, $3, 'INR', $4, $4, 'active');
+    `, [accNum, customer.id, accountTypeId, initialDeposit]);
+
+    await client.query('COMMIT');
+
+    // 6. Generate auth tokens so user is immediately logged in
+    const fullUser = { ...user, role: 'customer' };
+    const permissions = await getPermissionsForRole(role.id);
+    const payload     = buildJwtPayload(fullUser);
+    const accessToken = signAccessToken(payload);
+    const refreshToken= signRefreshToken(payload);
+
+    const tokenHash   = hashToken(refreshToken);
+    await saveRefreshToken({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+    });
+
+    await insertAuditLog({
+      userId: user.id,
+      action: 'CUSTOMER_SELF_REGISTERED',
+      entityType: 'user',
+      entityId: user.id,
+      newValue: { email, customerNumber: customer.customer_number, account: accNum },
+      ipAddress: ip,
+      userAgent: ua,
+      status: 'success',
+    });
+
+    return {
+      user: publicUser(fullUser, permissions),
+      accessToken,
+      refreshToken,
+      accountNumber: accNum,
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 };

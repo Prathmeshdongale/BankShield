@@ -29,6 +29,7 @@ const STATUS_MAP = {
   CUSTOMER_NOT_FOUND         : 404,
   CUSTOMER_ALREADY_EXISTS    : 409,
   CUSTOMER_ALREADY_DEACTIVATED: 409,
+  USER_DETAILS_REQUIRED      : 422,
   KYC_NOT_FOUND              : 404,
   INVALID_KYC_STATUS         : 400,
   REJECTION_REASON_REQUIRED  : 400,
@@ -38,6 +39,7 @@ const USER_MESSAGES = {
   CUSTOMER_NOT_FOUND         : 'Customer not found.',
   CUSTOMER_ALREADY_EXISTS    : 'A customer profile already exists for this user.',
   CUSTOMER_ALREADY_DEACTIVATED: 'Customer is already deactivated.',
+  USER_DETAILS_REQUIRED      : 'First name, last name, and email are required to create a new customer.',
   KYC_NOT_FOUND              : 'KYC document not found.',
   INVALID_KYC_STATUS         : 'Invalid KYC status.',
   REJECTION_REASON_REQUIRED  : 'A rejection reason is required when rejecting a document.',
@@ -59,11 +61,13 @@ const handleErr = (err, res) => {
 export const createCustomer = async (req, res) => {
   try {
     const {
-      userId, dateOfBirth, gender, nationality, occupation,
+      userId, firstName, lastName, email, phone, password,
+      dateOfBirth, gender, nationality, occupation,
       annualIncome, riskRating, isPep, segment,
     } = req.body;
     const customer = await createCustomerService(
-      { userId, dateOfBirth, gender, nationality, occupation, annualIncome, riskRating, isPep, segment },
+      { userId, firstName, lastName, email, phone, password,
+        dateOfBirth, gender, nationality, occupation, annualIncome, riskRating, isPep, segment },
       getMeta(req)
     );
     return success(res, { customer }, 'Customer created successfully.', 201);

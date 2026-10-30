@@ -54,7 +54,7 @@ const HOLD_CHANNELS = new Set(['neft', 'rtgs', 'imps', 'branch']);
  * @param {object} context  { account, card, channel, amount, currency, meta }
  * @returns {{ riskScore, isFraud, flag, reasons, decision, alertId }}
  */
-export const evaluateTransactionRisk = async (txn, context = {}) => {
+export const evaluateTransactionRisk = async (txn, context = {}, client = null) => {
   const startMs = Date.now();
 
   // ── 1. Build feature vector ──────────────────────────────────────────────
@@ -110,7 +110,7 @@ export const evaluateTransactionRisk = async (txn, context = {}) => {
         shap_values    : shapValues,   // ← persisted to fraud_predictions.explanation
       },
       inferenceMs,
-    });
+    }, client);
   } catch (err) {
     logger.warn(`[fraudEngine] fraud_predictions insert failed: ${err.message}`);
   }
@@ -135,7 +135,7 @@ export const evaluateTransactionRisk = async (txn, context = {}) => {
       isFraud     : isBlocked,
       flaggedAt   : (isBlocked || isFlagged) ? new Date().toISOString() : null,
       completedAt : finalStatus === 'completed'  ? new Date().toISOString() : null,
-    });
+    }, client);
   } catch (err) {
     logger.warn(`[fraudEngine] transaction status update failed: ${err.message}`);
   }
@@ -150,7 +150,7 @@ export const evaluateTransactionRisk = async (txn, context = {}) => {
         riskScore     : fraudProb,
         triggerReasons: rules,
         severity,
-      });
+      }, client);
       alertId = alert?.id ?? null;
       logger.warn(
         `[fraudEngine] Fraud alert created  id=${alertId}  ` +

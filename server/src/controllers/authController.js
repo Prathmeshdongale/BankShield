@@ -30,6 +30,9 @@ import {
   changePassword,
   updateProfile,
   getProfile,
+  sendSuperAdminOtp,
+  verifySuperAdminOtp,
+  registerCustomer,
 } from '../services/authService.js';
 import { success, failure } from '../utils/response.js';
 import { logger }           from '../utils/logger.js';
@@ -50,6 +53,7 @@ const getMeta = (req) => ({
  */
 const STATUS_MAP = {
   EMAIL_TAKEN              : 409,
+  PHONE_TAKEN              : 409,
   INVALID_ROLE             : 400,
   INVALID_CREDENTIALS      : 401,
   ACCOUNT_INACTIVE         : 403,
@@ -59,11 +63,15 @@ const STATUS_MAP = {
   INVALID_OR_EXPIRED_TOKEN : 400,
   WRONG_CURRENT_PASSWORD   : 400,
   USER_NOT_FOUND           : 404,
+  SUPERADMIN_OTP_REQUIRED  : 403,
+  SUPERADMIN_ONLY          : 403,
+  INVALID_OTP              : 401,
 };
 
 /** User-facing messages (no internal error codes leaked). */
 const USER_MESSAGES = {
   EMAIL_TAKEN              : 'An account with this email already exists.',
+  PHONE_TAKEN              : 'An account with this phone number already exists.',
   INVALID_ROLE             : 'The specified role is invalid or inactive.',
   INVALID_CREDENTIALS      : 'Invalid email or password.',
   ACCOUNT_INACTIVE         : 'Your account is inactive. Contact support.',
@@ -73,6 +81,9 @@ const USER_MESSAGES = {
   INVALID_OR_EXPIRED_TOKEN : 'Password reset link is invalid or has expired.',
   WRONG_CURRENT_PASSWORD   : 'Current password is incorrect.',
   USER_NOT_FOUND           : 'User account not found.',
+  SUPERADMIN_OTP_REQUIRED  : 'Super Admin must sign in using OTP sent to email. Please switch to Super Admin OTP Login.',
+  SUPERADMIN_ONLY          : 'This login method is exclusively reserved for the Super Administrator.',
+  INVALID_OTP              : 'Invalid or expired OTP. Please check your email or request a new code.',
 };
 
 const handleServiceError = (err, res) => {
@@ -263,4 +274,46 @@ export default {
   changePasswordHandler,
   getProfileHandler,
   updateProfileHandler,
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPER ADMIN OTP LOGIN HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const sendSuperAdminOtpHandler = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await sendSuperAdminOtp(email);
+    return success(res, result, result.message);
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
+};
+
+export const verifySuperAdminOtpHandler = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await verifySuperAdminOtp({ email, otp }, getMeta(req));
+    return success(res, result, 'Super admin authentication successful.');
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER SELF-REGISTRATION HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const registerCustomerHandler = async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, phone } = req.body;
+    const result = await registerCustomer(
+      { email, password, firstName, lastName, phone },
+      getMeta(req)
+    );
+    return success(res, result, 'Customer account created successfully.', 201);
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
 };

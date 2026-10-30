@@ -196,6 +196,8 @@ export const insertTransaction = async ({
   isFraud              = false,
   flaggedAt            = null,
   completedAt          = null,
+  reversalTxnId        = null,
+  reversedAt           = null,
   metadata             = null,
 }, client) => {
   const { rows } = await run(client, `
@@ -206,7 +208,7 @@ export const insertTransaction = async ({
       description, merchant_name, merchant_category,
       ip_address, device_fingerprint, location_city, location_country,
       latitude, longitude, channel,
-      risk_score, is_fraud, flagged_at, completed_at, metadata
+      risk_score, is_fraud, flagged_at, completed_at, reversal_txn_id, reversed_at, metadata
     ) VALUES (
       $1,
       $2, $3, $4, $5,
@@ -221,7 +223,7 @@ export const insertTransaction = async ({
       card_id, amount, currency, exchange_rate, amount_in_base,
       txn_type, status, description, merchant_name, channel,
       ip_address, location_city, location_country,
-      risk_score, is_fraud, flagged_at, completed_at,
+      risk_score, is_fraud, flagged_at, completed_at, reversal_txn_id, reversed_at,
       metadata, created_at, updated_at;
   `, [
     transactionRef,
@@ -230,7 +232,7 @@ export const insertTransaction = async ({
     description, merchantName, merchantCategory,
     ipAddress, deviceFingerprint, locationCity, locationCountry,
     latitude, longitude, channel,
-    riskScore, isFraud, flaggedAt, completedAt,
+    riskScore, isFraud, flaggedAt, completedAt, reversalTxnId, reversedAt,
     metadata ? JSON.stringify(metadata) : null,
   ]);
   return rows[0];

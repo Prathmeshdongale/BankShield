@@ -1,5 +1,5 @@
 """
-fraud_detector.py — XGBoost fraud scoring for BankShield.
+fraud_detector.py - XGBoost fraud scoring for BankShield.
 
 Loads the model saved by notebooks/train.py and exposes predict_risk().
 Falls back to a calibrated heuristic if the model file is absent.
@@ -22,16 +22,16 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.models.preprocessor import FeaturePreprocessor
 
-# shap is an optional accelerator — if import fails we fall back gracefully
+# shap is an optional accelerator - if import fails we fall back gracefully
 try:
     import shap as _shap
     _SHAP_AVAILABLE = True
 except ImportError:                    # pragma: no cover
     _shap = None
     _SHAP_AVAILABLE = False
-    logger.warning("shap not installed — feature contributions will be unavailable")
+    logger.warning("shap not installed - feature contributions will be unavailable")
 
-# Decision thresholds — overridden by trained_models/threshold.json if present
+# Decision thresholds - overridden by trained_models/threshold.json if present
 _DEFAULT_FLAG_THRESHOLD  = 0.45   # score ≥ this → flag for review
 _DEFAULT_BLOCK_THRESHOLD = 0.80   # score ≥ this → block transaction
 
@@ -79,6 +79,10 @@ class FraudDetector:
 
     def _load(self):
         model_path = settings.MODEL_FILE
+        if not os.path.exists(model_path):
+            alt_path = Path(settings.MODEL_DIR).parent / 'trained_models' / 'xgboost_fraud_model.joblib'
+            if alt_path.exists():
+                model_path = str(alt_path)
         if os.path.exists(model_path):
             try:
                 self.model = joblib.load(model_path)
@@ -86,7 +90,7 @@ class FraudDetector:
                 self.block_threshold = max(self.flag_threshold + 0.20, _DEFAULT_BLOCK_THRESHOLD)
                 logger.info(
                     f"Loaded XGBoost model from {model_path}  "
-                    f"(flag≥{self.flag_threshold:.3f}, block≥{self.block_threshold:.3f})"
+                    f"(flag>={self.flag_threshold:.3f}, block>={self.block_threshold:.3f})"
                 )
                 # ── Build SHAP TreeExplainer once (cheap: no data needed) ──
                 if _SHAP_AVAILABLE:
@@ -104,7 +108,7 @@ class FraudDetector:
                 self._explainer = None
         else:
             logger.info(
-                "No serialised model found — running heuristic baseline. "
+                "No serialised model found - running heuristic baseline. "
                 "Run: python notebooks/train.py"
             )
             self.model      = None
@@ -122,7 +126,7 @@ class FraudDetector:
         Returns
         -------
         dict with keys: risk_score, is_fraud, decision, model_version,
-                        shap_values (list of {feature, value, shap} — top 5 by |shap|)
+                        shap_values (list of {feature, value, shap} - top 5 by |shap|)
         """
         features = self.preprocessor.transform(data)
 
@@ -233,5 +237,5 @@ class FraudDetector:
         return round(min(max(score, 0.01), 0.99), 4)
 
 
-# Module-level singleton — imported by the FastAPI predict route
+# Module-level singleton - imported by the FastAPI predict route
 fraud_detector = FraudDetector()

@@ -27,9 +27,35 @@ const uuidParam = (paramName) =>
 
 export const createCustomerValidator = [
   body('userId')
-    .trim()
-    .notEmpty().withMessage('userId is required.')
+    .optional({ nullable: true })
     .isUUID(4).withMessage('userId must be a valid UUID v4.'),
+
+  body('firstName')
+    .if((v, { req }) => !req.body.userId)
+    .trim()
+    .notEmpty().withMessage('firstName is required when userId is not provided.')
+    .isLength({ max: 50 }).withMessage('firstName must be ≤ 50 characters.'),
+
+  body('lastName')
+    .if((v, { req }) => !req.body.userId)
+    .trim()
+    .notEmpty().withMessage('lastName is required when userId is not provided.')
+    .isLength({ max: 50 }).withMessage('lastName must be ≤ 50 characters.'),
+
+  body('email')
+    .if((v, { req }) => !req.body.userId)
+    .trim()
+    .notEmpty().withMessage('email is required when userId is not provided.')
+    .isEmail().withMessage('email must be a valid email address.')
+    .normalizeEmail(),
+
+  body('phone')
+    .optional({ nullable: true }).trim()
+    .isLength({ max: 30 }).withMessage('phone must be ≤ 30 characters.'),
+
+  body('password')
+    .optional({ nullable: true }).trim()
+    .isLength({ min: 8 }).withMessage('password must be at least 8 characters.'),
 
   body('dateOfBirth')
     .optional({ nullable: true })

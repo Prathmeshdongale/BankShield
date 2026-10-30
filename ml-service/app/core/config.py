@@ -1,5 +1,10 @@
 import os
+from pathlib import Path
 from pydantic import BaseModel
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+DEFAULT_MODEL_DIR = str(BASE_DIR / "saved_models")
+DEFAULT_MODEL_FILE = str(BASE_DIR / "saved_models" / "xgboost_fraud_model.joblib")
 
 
 class Settings(BaseModel):
@@ -14,8 +19,8 @@ class Settings(BaseModel):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
-    MODEL_DIR: str = os.getenv("MODEL_DIR", "saved_models")
-    MODEL_FILE: str = os.path.join(MODEL_DIR, "xgboost_fraud_model.joblib")
+    MODEL_DIR: str = os.getenv("MODEL_DIR", DEFAULT_MODEL_DIR)
+    MODEL_FILE: str = os.getenv("MODEL_FILE", DEFAULT_MODEL_FILE)
 
 
 settings = Settings()
