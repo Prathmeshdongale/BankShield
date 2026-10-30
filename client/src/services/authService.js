@@ -9,6 +9,12 @@ export const authService = {
   login: (credentials) =>
     api.post('/auth/login', credentials).then(r => r.data),
 
+  verifyLoginOtp: (email, otp) =>
+    api.post('/auth/verify-otp', { email, otp }).then(r => r.data),
+
+  resendLoginOtp: (email) =>
+    api.post('/auth/resend-otp', { email }).then(r => r.data),
+
   registerCustomer: (data) =>
     api.post('/auth/register-customer', data).then(r => r.data),
 

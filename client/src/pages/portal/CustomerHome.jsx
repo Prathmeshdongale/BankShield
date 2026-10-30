@@ -214,7 +214,7 @@ const CustomerHome = () => {
             <h2 className="mb-3 font-semibold text-gray-800 dark:text-gray-200">Quick Actions</h2>
             <div className="flex flex-wrap gap-3">
               {[
-                { label: 'Transfer Funds', Icon: Send,           path: '/transfer',          cls: 'bg-blue-600 hover:bg-blue-700 text-white' },
+                { label: 'Security Alerts', Icon: ShieldAlert,   path: '/portal/alerts',     cls: 'bg-amber-600 hover:bg-amber-700 text-white' },
                 { label: 'My Accounts',    Icon: Building2,      path: '/portal/accounts',   cls: 'border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800' },
                 { label: 'My Cards',       Icon: CreditCard,     path: '/portal/cards',      cls: 'border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800' },
                 { label: 'Transactions',   Icon: ArrowLeftRight, path: '/portal/transactions',cls: 'border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800' },

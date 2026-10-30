@@ -121,27 +121,33 @@ function App() {
                   {/* Role-specific dashboards (rendered inside AppLayout's Outlet) */}
                   <Route index element={<DashboardRouter />} />
                   
-                  <Route path="transactions"      element={<Transactions />} />
-                  <Route path="accounts"          element={<AccountList />} />
-                  <Route path="accounts/:id"      element={<AccountDetail />} />
-                  <Route path="cards"             element={<CardsList />} />
-                  <Route path="cards/:id"         element={<CardDetail />} />
-                  <Route path="customers"         element={<CustomerList />} />
-                  <Route path="customers/:id"     element={<CustomerDetail />} />
+                  {/* Banking Operations - restricted to branch managers and fraud analysts (Super Admin restricted, Customer uses /portal) */}
+                  <Route element={<ProtectedRoute roles={['branch_manager', 'fraud_analyst']} />}>
+                    <Route path="transactions"      element={<Transactions />} />
+                    <Route path="accounts"          element={<AccountList />} />
+                    <Route path="accounts/:id"      element={<AccountDetail />} />
+                    <Route path="cards"             element={<CardsList />} />
+                    <Route path="cards/:id"         element={<CardDetail />} />
+                    <Route path="customers"         element={<CustomerList />} />
+                    <Route path="customers/:id"     element={<CustomerDetail />} />
+                  </Route>
+
+                  {/* Branch Manager Transfers */}
+                  <Route element={<ProtectedRoute roles={['branch_manager']} />}>
+                    <Route path="transfer"          element={<Transfer />} />
+                  </Route>
+
                   <Route path="branches"          element={<Branches />} />
-                  <Route path="transfer"          element={<Transfer />} />
                   <Route path="notifications"     element={<Notifications />} />
                   <Route path="reports"           element={<Reports />} />
                   <Route path="profile"           element={<Profile />} />
 
-                  {/* Super Admin - User management and system settings */}
+                  {/* Super Admin - Platform configuration and staff management ONLY (Privacy boundary strictly enforced) */}
                   <Route element={<ProtectedRoute roles={['super_admin']} />}>
                     <Route path="admin/users"         element={<UserManagement />} />
                     <Route path="admin/settings"      element={<SystemSettings />} />
                     <Route path="admin/audit-logs"    element={<AuditLogs />} />
                     <Route path="admin/branches"      element={<Branches />} />
-                    <Route path="admin/customers"     element={<CustomerList />} />
-                    <Route path="admin/customers/:id" element={<CustomerDetail />} />
                     <Route path="ml/status"           element={<SystemSettings />} />
                   </Route>
 

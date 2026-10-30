@@ -181,10 +181,12 @@ const ROLE_PERMISSIONS = {
 
   customer: [
     'accounts:read',
-    'transactions:read','transactions:create',
+    'transactions:read',
     'cards:read',
     'reports:read',
-    'fraud:report','fraud:dispute',
+    'fraud:read_alerts',
+    'fraud:report',
+    'fraud:dispute',
   ],
 };
 

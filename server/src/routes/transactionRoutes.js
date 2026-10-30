@@ -23,6 +23,7 @@
 
 import { Router }       from 'express';
 import { authenticate, authorize } from '../middleware/authenticate.js';
+import { restrictBankingFromSuperAdmin } from '../middleware/bankingRestriction.js';
 import {
   validate,
   depositValidator,
@@ -52,6 +53,7 @@ import {
 
 const router = Router();
 router.use(authenticate);
+router.use(restrictBankingFromSuperAdmin);
 
 // ── READ ─────────────────────────────────────────────────────────────────────
 

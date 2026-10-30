@@ -101,9 +101,9 @@ const MyTransactions = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link to="/transfer">
-            <Button size="sm" className="gap-1.5">
-              <Send className="h-4 w-4" /> Transfer Funds
+          <Link to="/portal/alerts">
+            <Button variant="outline" size="sm" className="gap-1.5 border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-300">
+              <ShieldAlert className="h-4 w-4 text-amber-600" /> Security Alerts
             </Button>
           </Link>
           <Button variant="outline" size="sm" onClick={() => load(page)} disabled={loading} className="gap-1.5">

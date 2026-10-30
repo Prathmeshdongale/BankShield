@@ -30,16 +30,18 @@ const VALID_ROLES = [
   'fraud_analyst', 'branch_manager', 'teller', 'customer',
 ];
 
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{};:'",.<>/?\\|`~]).{8,}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{};:'",.<>/?\\|`~]).{12,}$/;
 
 const passwordField = (fieldName = 'password') =>
   body(fieldName)
-    .trim()
-    .notEmpty().withMessage('Password is required.')
-    .matches(PASSWORD_REGEX)
-    .withMessage(
-      'Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.'
-    );
+    .custom((val) => {
+      if (!val) throw new Error('Password is required.');
+      if (val !== val.trim()) throw new Error('Password cannot contain leading or trailing whitespace.');
+      if (!PASSWORD_REGEX.test(val)) {
+        throw new Error('Password must be at least 12 characters and include uppercase, lowercase, a number, and a special character.');
+      }
+      return true;
+    });
 
 const emailField = (fieldName = 'email') =>
   body(fieldName)
@@ -81,7 +83,7 @@ export const registerValidator = [
     .notEmpty().withMessage('Password is required.')
     .matches(PASSWORD_REGEX)
     .withMessage(
-      'Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.'
+      'Password must be at least 12 characters and include uppercase, lowercase, a number, and a special character.'
     ),
 
   body('firstName')
@@ -288,4 +290,22 @@ export const verifySuperAdminOtpValidator = [
     .notEmpty().withMessage('OTP is required.')
     .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits.')
     .isNumeric().withMessage('OTP must contain only numbers.'),
+];
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. UNIFIED LOGIN OTP VALIDATORS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const verifyLoginOtpValidator = [
+  emailField(),
+  body('otp')
+    .trim()
+    .notEmpty().withMessage('Verification code is required.')
+    .isLength({ min: 6, max: 6 }).withMessage('Verification code must be exactly 6 digits.')
+    .isNumeric().withMessage('Verification code must contain only numbers.'),
+];
+
+export const resendOtpValidator = [
+  emailField(),
 ];

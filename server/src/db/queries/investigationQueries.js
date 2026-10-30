@@ -86,6 +86,8 @@ export const findAlertById = async (id, client = null) => {
  * Filters: status, severity, assignedTo, isFraud, dateFrom, dateTo, limit, offset
  */
 export const listAlerts = async ({
+  userId     = null,
+  branchId   = null,
   status     = null,
   severity   = null,
   assignedTo = null,
@@ -107,6 +109,14 @@ export const listAlerts = async ({
   if (isAssigned === false) cond.push('fa.assigned_to IS NULL');
   if (dateFrom) { vals.push(dateFrom); cond.push(`fa.created_at >= $${vals.length}`); }
   if (dateTo)   { vals.push(dateTo);   cond.push(`fa.created_at <= $${vals.length}`); }
+  if (userId) {
+    vals.push(userId);
+    cond.push(`(t.source_account_id IN (SELECT a.id FROM accounts a JOIN customers c ON c.id = a.customer_id WHERE c.user_id = $${vals.length}) OR t.destination_account_id IN (SELECT a.id FROM accounts a JOIN customers c ON c.id = a.customer_id WHERE c.user_id = $${vals.length}))`);
+  }
+  if (branchId) {
+    vals.push(branchId);
+    cond.push(`(t.source_account_id IN (SELECT a.id FROM accounts a WHERE a.branch_id = $${vals.length}) OR t.destination_account_id IN (SELECT a.id FROM accounts a WHERE a.branch_id = $${vals.length}))`);
+  }
 
   const where = `WHERE ${cond.join(' AND ')}`;
 

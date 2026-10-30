@@ -194,11 +194,33 @@ BankShield/
 
 ---
 
-## 7. Default Credentials (Seeded)
+## 7. Role-Based Portals & Authentication Workflow
 
-| Account | Email | Password | Role |
-|---|---|---|---|
-| Super Admin | `superadmin@bankshield.internal` | `BankShield@Super2025!` | `super_admin` |
+BankShield features a unified **Two-Factor Authentication (2FA)** pipeline with single-use cryptographic email OTPs across all roles:
+
+1. **Customer Self-Registration (`/register`):**
+   - New customers register with strong password ($\ge 12$ characters with uppercase, lowercase, numbers, and special symbols).
+   - Automatically provisions a verified retail customer profile, savings account with ₹25,000 initial balance, and 5-minute single-use OTP.
+2. **Customer Fraud Intelligence (`/` and `/portal/*`):**
+   - Pure fraud transaction monitoring (transfers/deposits revoked).
+   - Real-time 0–100% risk scores, APPROVE/REVIEW/BLOCK badges, flag reasons, and "Report Suspicious Transaction" dispute modals.
+3. **Super Administrator Passwordless OTP Access:**
+   - Super Admin can log in using passwordless email verification dispatched to `superadmin@bankshield.internal`.
+   - **Strict Data Privacy Boundary:** Super Admin is blocked by middleware from accessing individual customer profiles, accounts, balances, or transactions (`403 Forbidden`). Super Admin access is limited to system operational health, ML telemetry, staff provisioning, and audit logs.
+4. **Bank Manager & Fraud Analyst Portals:**
+   - Bank Manager oversees branch-scoped accounts, volume, fraud rate, and local branch alerts.
+   - Fraud Analyst has full workbench access: ML predictions, SHAP feature importance charts, severity triaging, analyst notes, and account freeze actions.
+
+### Demo & Test Credentials
+
+| Role | Email | Password | Auth Method | Scoped Access |
+|---|---|---|---|---|
+| **Super Admin** | `superadmin@bankshield.internal` | *(Passwordless)* or `BankShield@Super2025!` | Email OTP (5m TTL) | Operational Health, Audit Logs, Staff (No Banking) |
+| **Fraud Analyst** | `analyst@bankshield.in` | `Analyst@12345!` | Password + Email OTP | Fraud Workbench, SHAP Explanations, Alert Triage |
+| **Customer** | `samdae@email.com` / Self-register | `BankShield@Sam2025!` | Password + Email OTP | Fraud Monitoring, Risk Scores, Alerts & Disputes |
+
+*(Note: In development mode, dispatched OTPs are displayed in the server terminal and surfaced via an auto-fill helper chip on the login screen).*
+
 
 ---
 

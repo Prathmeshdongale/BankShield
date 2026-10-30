@@ -33,6 +33,8 @@ import {
   sendSuperAdminOtp,
   verifySuperAdminOtp,
   registerCustomer,
+  verifyLoginOtp,
+  resendLoginOtp,
 } from '../services/authService.js';
 import { success, failure } from '../utils/response.js';
 import { logger }           from '../utils/logger.js';
@@ -313,6 +315,26 @@ export const registerCustomerHandler = async (req, res) => {
       getMeta(req)
     );
     return success(res, result, 'Customer account created successfully.', 201);
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
+};
+
+export const verifyLoginOtpHandler = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await verifyLoginOtp({ email, otp }, getMeta(req));
+    return success(res, result, 'Verification successful. Welcome to BankShield.');
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
+};
+
+export const resendOtpHandler = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await resendLoginOtp(email);
+    return success(res, result, result.message);
   } catch (err) {
     return handleServiceError(err, res);
   }

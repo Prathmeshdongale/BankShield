@@ -32,6 +32,8 @@ import {
   registerCustomerValidator,
   sendSuperAdminOtpValidator,
   verifySuperAdminOtpValidator,
+  verifyLoginOtpValidator,
+  resendOtpValidator,
 } from '../validators/authValidators.js';
 import {
   register,
@@ -46,6 +48,8 @@ import {
   sendSuperAdminOtpHandler,
   verifySuperAdminOtpHandler,
   registerCustomerHandler,
+  verifyLoginOtpHandler,
+  resendOtpHandler,
 } from '../controllers/authController.js';
 
 const router = Router();
@@ -139,6 +143,30 @@ router.post(
   verifySuperAdminOtpHandler
 );
 
+
+/**
+ * POST /api/auth/verify-otp
+ * Public — verifies 6-digit OTP for any of the 4 roles and completes login.
+ */
+router.post(
+  '/verify-otp',
+  authLimiter,
+  ...verifyLoginOtpValidator,
+  validate,
+  verifyLoginOtpHandler
+);
+
+/**
+ * POST /api/auth/resend-otp
+ * Public — resends a fresh 5-minute login OTP.
+ */
+router.post(
+  '/resend-otp',
+  authLimiter,
+  ...resendOtpValidator,
+  validate,
+  resendOtpHandler
+);
 router.post(
   '/login',
   authLimiter,

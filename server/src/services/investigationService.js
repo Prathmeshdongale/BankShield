@@ -97,6 +97,8 @@ export const listAlertsService = async (queryParams = {}) => {
     isAssigned,
     dateFrom  : queryParams.dateFrom   || null,
     dateTo    : queryParams.dateTo     || null,
+    userId    : queryParams.userId     || null,
+    branchId  : queryParams.branchId   || null,
     sortDir   : queryParams.sortDir    || 'DESC',
     limit,
     offset,

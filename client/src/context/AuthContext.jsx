@@ -2,18 +2,15 @@
  * AuthContext.jsx — Authentication state for the entire app.
  *
  * Provides:
- *   user                   — { id, email, role, name, permissions, ... } | null
- *   isAuthenticated       — boolean
- *   isLoading              — true while restoring session on mount
- *   login(email, password) — Promise
- *   loginWithOtp(email, otp) — Promise
- *   registerCustomer(data) — Promise
- *   logout(logoutAll?)     — Promise
- *   refreshUser()          — re-fetches /auth/me and updates state
- *
- * Session is restored from tokenStore on mount by calling GET /auth/me.
- * If the token is expired but a refresh token exists, the Axios interceptor
- * in api.js handles the silent refresh transparently.
+ *   user                       — { id, email, role, name, permissions, ... } | null
+ *   isAuthenticated           — boolean
+ *   isLoading                  — true while restoring session on mount
+ *   login(email, password)     — Promise ({ requiresOtp: true, email, devOtp, ... })
+ *   verifyLoginOtp(email, otp) — Promise (profile)
+ *   resendOtp(email)           — Promise
+ *   registerCustomer(data)     — Promise
+ *   logout(logoutAll?)         — Promise
+ *   refreshUser()              — re-fetches /auth/me and updates state
  */
 
 import React, {
@@ -56,21 +53,33 @@ export const AuthProvider = ({ children }) => {
     restore();
   }, []);
 
-  // ── login ───────────────────────────────────────────────────────────────────
+  // ── Step 1: Validate Credentials & Issue OTP ────────────────────────────────
   const login = useCallback(async (email, password) => {
     const res = await authService.login({ email, password });
+    return res.data;
+  }, []);
+
+  // ── Step 2: Verify OTP & Issue Session Tokens (All Roles) ───────────────────
+  const verifyLoginOtp = useCallback(async (email, otp) => {
+    const res = await authService.verifyLoginOtp(email, otp);
     const { user: profile, accessToken, refreshToken } = res.data;
 
     tokenStore.setTokens(accessToken, refreshToken);
     tokenStore.setUser(profile);
     setUser(profile);
 
-    toast.success(`Welcome back, ${profile.firstName}!`);
+    toast.success(`Welcome, ${profile.firstName}!`);
     return profile;
   }, []);
 
-  // ── loginWithOtp (Super Admin) ──────────────────────────────────────────────
-  const loginWithOtp = useCallback(async (email, otp) => {
+  // ── Super Admin Passwordless OTP Request & Verification ─────────────────────
+  const sendSuperAdminOtp = useCallback(async (email) => {
+    const res = await authService.sendSuperAdminOtp(email);
+    toast.success('Super Admin verification code sent to your email.');
+    return res.data;
+  }, []);
+
+  const verifySuperAdminOtp = useCallback(async (email, otp) => {
     const res = await authService.verifySuperAdminOtp(email, otp);
     const { user: profile, accessToken, refreshToken } = res.data;
 
@@ -78,21 +87,32 @@ export const AuthProvider = ({ children }) => {
     tokenStore.setUser(profile);
     setUser(profile);
 
-    toast.success(`Super Admin logged in successfully! Welcome, ${profile.firstName}!`);
+    toast.success(`Welcome, Super Administrator ${profile.firstName}!`);
     return profile;
+  }, []);
+
+  // ── Resend OTP ──────────────────────────────────────────────────────────────
+  const resendOtp = useCallback(async (email) => {
+    const res = await authService.resendLoginOtp(email);
+    toast.success('Verification code resent to your email.');
+    return res.data;
   }, []);
 
   // ── registerCustomer ────────────────────────────────────────────────────────
   const registerCustomer = useCallback(async (data) => {
     const res = await authService.registerCustomer(data);
-    const { user: profile, accessToken, refreshToken } = res.data;
+    const result = res.data;
 
-    tokenStore.setTokens(accessToken, refreshToken);
-    tokenStore.setUser(profile);
-    setUser(profile);
+    // If tokens are returned directly
+    if (result.accessToken && result.user) {
+      tokenStore.setTokens(result.accessToken, result.refreshToken);
+      tokenStore.setUser(result.user);
+      setUser(result.user);
+      toast.success(`Account created! Welcome, ${result.user.firstName}!`);
+      return result.user;
+    }
 
-    toast.success(`Account created! Welcome to BankShield, ${profile.firstName}!`);
-    return profile;
+    return result;
   }, []);
 
   // ── logout ──────────────────────────────────────────────────────────────────
@@ -148,7 +168,10 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated : !!user,
       isLoading,
       login,
-      loginWithOtp,
+      verifyLoginOtp,
+      sendSuperAdminOtp,
+      verifySuperAdminOtp,
+      resendOtp,
       registerCustomer,
       logout,
       refreshUser,

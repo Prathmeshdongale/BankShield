@@ -1,24 +1,29 @@
 /**
- * Register.jsx — Customer self-registration page with instant account creation.
+ * Register.jsx — Customer self-registration page with instant account creation
+ * and strict 12+ character password policy & OTP verification.
  */
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm }     from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z }           from 'zod';
-import { ShieldCheck, Eye, EyeOff, Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
+import {
+  ShieldCheck, Eye, EyeOff, Loader2, CheckCircle2, ArrowRight,
+  Mail, Sparkles
+} from 'lucide-react';
 import { useAuth }     from '@/context/AuthContext';
 import { ErrorMessage, FieldError } from '@/components/ui/ErrorMessage';
+import PasswordStrengthIndicator, { checkPasswordRules } from '@/components/auth/PasswordStrengthIndicator';
 
 const schema = z.object({
-  firstName: z.string().min(1, 'First name is required.').max(50, 'Max 50 characters.'),
-  lastName:  z.string().min(1, 'Last name is required.').max(50, 'Max 50 characters.'),
-  email:     z.string().min(1, 'Email is required.').email('Enter a valid email address.'),
+  firstName: z.string().trim().min(1, 'First name is required.').max(50, 'Max 50 characters.'),
+  lastName:  z.string().trim().min(1, 'Last name is required.').max(50, 'Max 50 characters.'),
+  email:     z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
   phone:     z.string().optional().refine((val) => !val || /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/.test(val), {
     message: 'Enter a valid phone number.',
   }),
   password:  z.string()
-    .min(8, 'Password must be at least 8 characters.')
+    .min(12, 'Password must be at least 12 characters.')
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{};:'",.<>/?\\|`~])/, 
       'Must contain uppercase, lowercase, number, and special character.'
     ),
@@ -29,26 +34,44 @@ const schema = z.object({
 });
 
 const Register = () => {
-  const { registerCustomer } = useAuth();
-  const navigate             = useNavigate();
-  const [showPw, setShowPw]   = useState(false);
+  const { registerCustomer, verifyLoginOtp, resendOtp } = useAuth();
+  const navigate                         = useNavigate();
+  const [showPw, setShowPw]               = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [apiError, setApiError]           = useState('');
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } =
-    useForm({ resolver: zodResolver(schema) });
+  // OTP Verification state
+  const [pendingOtp, setPendingOtp]       = useState(false);
+  const [userEmail, setUserEmail]         = useState('');
+  const [otpCode, setOtpCode]             = useState('');
+  const [devOtp, setDevOtp]               = useState(null);
+  const [isVerifying, setIsVerifying]     = useState(false);
+  const [isResending, setIsResending]     = useState(false);
+
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } =
+    useForm({ resolver: zodResolver(schema), mode: 'onChange' });
+
+  const watchedPassword = watch('password') || '';
+  const watchedConfirmPassword = watch('confirmPassword') || '';
 
   const onSubmit = async ({ firstName, lastName, email, phone, password }) => {
     setApiError('');
     try {
-      await registerCustomer({
+      const res = await registerCustomer({
         firstName,
         lastName,
         email,
         phone: phone || null,
         password,
       });
-      navigate('/', { replace: true });
+
+      if (res?.requiresOtp) {
+        setUserEmail(res.email);
+        setDevOtp(res.devOtp ?? null);
+        setPendingOtp(true);
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (err) {
       if (err?.response?.data?.error) {
         setApiError(err.response.data.error);
@@ -57,6 +80,40 @@ const Register = () => {
       } else {
         setApiError('Registration failed. Please review your information and try again.');
       }
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e?.preventDefault();
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setApiError('Please enter the 6-digit verification code.');
+      return;
+    }
+    setApiError('');
+    setIsVerifying(true);
+    try {
+      await verifyLoginOtp(userEmail, otpCode.trim());
+      navigate('/', { replace: true });
+    } catch (err) {
+      if (err?.response?.data?.error) {
+        setApiError(err.response.data.error);
+      } else {
+        setApiError('Invalid or expired verification code.');
+      }
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setIsResending(true);
+    try {
+      const res = await resendOtp(userEmail);
+      if (res?.devOtp) setDevOtp(res.devOtp);
+    } catch (err) {
+      setApiError(err?.response?.data?.error ?? 'Failed to resend code.');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -89,172 +146,265 @@ const Register = () => {
               <ShieldCheck className="h-7 w-7" />
             </div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Create your <span className="text-blue-600 dark:text-blue-400">BankShield</span> account
+              {pendingOtp ? 'Verify Your Account' : 'Create Customer Account'}
             </h1>
             <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-              Open your secure personal banking account in seconds
+              {pendingOtp
+                ? `Enter the 6-digit code sent to ${userEmail}`
+                : 'Open your secure fraud-monitored banking account'}
             </p>
           </div>
 
           <ErrorMessage message={apiError} onDismiss={() => setApiError('')} className="mb-4" />
 
-          {/* Benefits banner */}
-          <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50/60 p-3.5 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-            <p className="font-semibold text-blue-800 dark:text-blue-300 mb-1 flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              Included with your new account:
-            </p>
-            <ul className="grid grid-cols-2 gap-1 text-[11px] text-slate-600 dark:text-slate-300 pl-5 list-disc">
-              <li>Instant active Savings account</li>
-              <li>₹25,000 demo initial deposit</li>
-              <li>Real-time XGBoost fraud guard</li>
-              <li>Customer self-service dashboard</li>
-            </ul>
-          </div>
+          {/* OTP Verification Step */}
+          {pendingOtp ? (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
+                <p className="font-semibold flex items-center gap-1.5 mb-1">
+                  <Mail className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  Verification Code Dispatched
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  We sent a single-use 6-digit verification code to <strong className="font-mono">{userEmail}</strong>.
+                  Code expires in 5 minutes.
+                </p>
+              </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-            {/* First & Last Name */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {devOtp && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold">Dev OTP: </span>
+                    <span className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-300 ml-1">{devOtp}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOtpCode(devOtp)}
+                    className="text-[11px] font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
+                  >
+                    Auto-fill
+                  </button>
+                </div>
+              )}
+
               <div>
-                <label htmlFor="firstName" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  First Name <span className="text-red-500">*</span>
+                <label htmlFor="otp" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  6-Digit OTP Code
                 </label>
                 <input
-                  id="firstName"
+                  id="otp"
                   type="text"
-                  placeholder="John"
-                  {...register('firstName')}
-                  className={fieldCls}
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  className={`${fieldCls} font-mono text-center text-xl tracking-widest`}
+                  placeholder="••••••"
+                  autoFocus
                 />
-                <FieldError message={errors.firstName?.message} />
               </div>
 
-              <div>
-                <label htmlFor="lastName" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Last Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="lastName"
-                  type="text"
-                  placeholder="Doe"
-                  {...register('lastName')}
-                  className={fieldCls}
-                />
-                <FieldError message={errors.lastName?.message} />
-              </div>
-            </div>
+              <button
+                type="submit"
+                disabled={isVerifying || otpCode.length !== 6}
+                className={
+                  'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 ' +
+                  'text-sm font-semibold text-white shadow-sm transition ' +
+                  'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 ' +
+                  'dark:bg-blue-600 dark:hover:bg-blue-500 ' +
+                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ' +
+                  'disabled:opacity-60'
+                }
+              >
+                {isVerifying && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isVerifying ? 'Activating account…' : 'Verify & Enter Dashboard'}
+              </button>
 
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="john.doe@example.com"
-                {...register('email')}
-                className={fieldCls}
-              />
-              <FieldError message={errors.email?.message} />
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Phone Number <span className="text-xs text-slate-400">(Optional)</span>
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                placeholder="+91 98765 43210"
-                {...register('phone')}
-                className={fieldCls}
-              />
-              <FieldError message={errors.phone?.message} />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPw ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  placeholder="••••••••"
-                  {...register('password')}
-                  className={`${fieldCls} pr-10`}
-                />
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowPw(v => !v)}
-                  aria-label={showPw ? 'Hide password' : 'Show password'}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                  onClick={() => setPendingOtp(false)}
+                  className="hover:underline text-slate-600 dark:text-slate-300"
                 >
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  Edit details
                 </button>
-              </div>
-              <FieldError message={errors.password?.message} />
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Confirm Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="confirmPassword"
-                  type={showConfirmPw ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  placeholder="••••••••"
-                  {...register('confirmPassword')}
-                  className={`${fieldCls} pr-10`}
-                />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPw(v => !v)}
-                  aria-label={showConfirmPw ? 'Hide password' : 'Show password'}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                  disabled={isResending}
+                  onClick={handleResendOtp}
+                  className="hover:underline text-blue-600 dark:text-blue-400 disabled:opacity-50"
                 >
-                  {showConfirmPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {isResending ? 'Sending…' : 'Resend Code'}
                 </button>
               </div>
-              <FieldError message={errors.confirmPassword?.message} />
-            </div>
+            </form>
+          ) : (
+            /* Registration Details Step */
+            <>
+              {/* Security Banner */}
+              <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50/60 p-3.5 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
+                <p className="font-semibold text-blue-800 dark:text-blue-300 mb-1 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Fraud-monitored banking features:
+                </p>
+                <ul className="grid grid-cols-2 gap-1 text-[11px] text-slate-600 dark:text-slate-300 pl-5 list-disc">
+                  <li>Active savings account</li>
+                  <li>Real-time XGBoost fraud guard</li>
+                  <li>Transaction risk indicators</li>
+                  <li>Security alerts dashboard</li>
+                </ul>
+              </div>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={
-                'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 mt-2 ' +
-                'text-sm font-semibold text-white shadow-sm transition ' +
-                'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 ' +
-                'dark:bg-blue-600 dark:hover:bg-blue-500 ' +
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ' +
-                'dark:focus:ring-offset-gray-900 disabled:opacity-60'
-              }
-            >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isSubmitting ? 'Creating your account…' : 'Create Account'}
-            </button>
-          </form>
+              <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+                {/* First & Last Name */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="firstName" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="firstName"
+                      type="text"
+                      placeholder="John"
+                      {...register('firstName')}
+                      className={fieldCls}
+                    />
+                    <FieldError message={errors.firstName?.message} />
+                  </div>
 
-          {/* Back to sign in */}
-          <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-4 text-center text-sm text-slate-500 dark:text-slate-400">
-            Already have an account?{' '}
-            <Link
-              to="/login"
-              className="font-semibold text-blue-600 hover:underline dark:text-blue-400 inline-flex items-center gap-1"
-            >
-              Sign in here <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
+                  <div>
+                    <label htmlFor="lastName" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="lastName"
+                      type="text"
+                      placeholder="Doe"
+                      {...register('lastName')}
+                      className={fieldCls}
+                    />
+                    <FieldError message={errors.lastName?.message} />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="john.doe@example.com"
+                    {...register('email')}
+                    className={fieldCls}
+                  />
+                  <FieldError message={errors.email?.message} />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Phone Number <span className="text-xs text-slate-400">(Optional)</span>
+                  </label>
+                  <input
+                    id="phone"
+                    type="tel"
+                    placeholder="+91 98765 43210"
+                    {...register('phone')}
+                    className={fieldCls}
+                  />
+                  <FieldError message={errors.phone?.message} />
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPw ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      placeholder="••••••••••••"
+                      {...register('password')}
+                      className={`${fieldCls} pr-10`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(v => !v)}
+                      aria-label={showPw ? 'Hide password' : 'Show password'}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                    >
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <FieldError message={errors.password?.message} />
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Confirm Password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="confirmPassword"
+                      type={showConfirmPw ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      placeholder="••••••••••••"
+                      {...register('confirmPassword')}
+                      className={`${fieldCls} pr-10`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPw(v => !v)}
+                      aria-label={showConfirmPw ? 'Hide password' : 'Show password'}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                    >
+                      {showConfirmPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <FieldError message={errors.confirmPassword?.message} />
+                </div>
+
+                {/* Interactive Password Policy Meter */}
+                <PasswordStrengthIndicator
+                  password={watchedPassword}
+                  confirmPassword={watchedConfirmPassword}
+                />
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={
+                    'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 mt-4 ' +
+                    'text-sm font-semibold text-white shadow-sm transition ' +
+                    'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 ' +
+                    'dark:bg-blue-600 dark:hover:bg-blue-500 ' +
+                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ' +
+                    'dark:focus:ring-offset-gray-900 disabled:opacity-60'
+                  }
+                >
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isSubmitting ? 'Creating account…' : 'Create Account & Continue'}
+                </button>
+              </form>
+
+              {/* Back to sign in */}
+              <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                Already registered?{' '}
+                <Link
+                  to="/login"
+                  className="font-semibold text-blue-600 hover:underline dark:text-blue-400 inline-flex items-center gap-1"
+                >
+                  Sign in here <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </>
+          )}
         </div>
 
         <p className="mt-4 text-center text-xs text-slate-400 dark:text-slate-600">

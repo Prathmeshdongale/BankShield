@@ -78,7 +78,13 @@ const handleErr = (err, res) => {
 /** GET /api/fraud/alerts */
 export const listAlerts = async (req, res) => {
   try {
-    const result = await listAlertsService(req.query);
+    const query = { ...req.query };
+    if (req.user?.role === 'customer') {
+      query.userId = req.user.id;
+    } else if (req.user?.role === 'branch_manager' && req.user?.branch_id) {
+      query.branchId = req.user.branch_id;
+    }
+    const result = await listAlertsService(query);
     return success(res, result, 'Fraud alerts retrieved.');
   } catch (err) { return handleErr(err, res); }
 };

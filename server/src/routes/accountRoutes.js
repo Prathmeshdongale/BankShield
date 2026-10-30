@@ -25,6 +25,7 @@
 
 import { Router }       from 'express';
 import { authenticate, authorize } from '../middleware/authenticate.js';
+import { restrictBankingFromSuperAdmin } from '../middleware/bankingRestriction.js';
 import {
   validate,
   openAccountValidator,
@@ -57,6 +58,7 @@ import {
 
 const router = Router();
 router.use(authenticate);
+router.use(restrictBankingFromSuperAdmin);
 
 // ── Reference data ────────────────────────────────────────────────────────────
 router.get('/types', authorize('accounts:read'), listAccountTypes);

@@ -628,3 +628,20 @@ ode --check). |
 | **10. Documentation & Presentability** | Created comprehensive, publication-grade README.md at repository root with architecture diagrams, schema details, RBAC tables, and runbooks. | Complete repository documentation. |
 
 ### Current System Health & Readiness: **PRODUCTION & DEMONSTRATION READY (100% Core Functionality Restored)**
+
+---
+
+## 22. Role-Based Security, Authentication & Customer Module Overhaul (Completed October 30, 2026)
+
+### Key Objectives & Outcomes:
+1. **Customer Security Alerts Bug Resolution:** Fixed `403 Forbidden` (`missing permission: fraud:read_alerts`) by migrating `role_permissions` to include `fraud:read_alerts`, `fraud:report`, and `fraud:dispute` for `customer`. Fixed SQL column syntax bug (`t.account_id` → `t.source_account_id` / `t.destination_account_id` and parameter interpolation) in `investigationQueries.js`. Alerts are now securely scoped to customer-owned accounts.
+2. **Customer Module Simplification (Fraud Monitoring Only):** Revoked customer balance-changing permissions (`transactions:create`) and removed all transfer/deposit/withdrawal buttons from customer UI. Replaced with pure **Fraud Intelligence & Transaction Monitoring** dashboard featuring 0–100% risk scores, APPROVE/REVIEW/BLOCK badges, flag reasons, and "Report Suspicious Transaction" dispute modals.
+3. **Unified MFA / OTP Authentication for All 4 Roles:**
+   - **Step 1:** Credential verification (12+ character strong password policy enforced via regex, uppercase, lowercase, numbers, special characters, and leading/trailing whitespace rejection).
+   - **Step 2:** Single-use 6-digit cryptographic OTP dispatched to registered email (5-minute TTL, rate-limited, logged to server console in development).
+   - **Step 3:** Session JWT tokens issued only upon successful OTP verification.
+   - **Customer Self-Registration:** Available at `/register` with automatic creation of verified customer profile, savings account, and OTP dispatch.
+4. **Super Administrator Passwordless Email OTP Login:** Super Admins can sign in via single-use email verification code directly to `superadmin@bankshield.internal` without requiring a password.
+5. **Super Admin Strict Privacy Boundary:** Enforced `restrictBankingFromSuperAdmin` middleware across banking routers (`/transactions`, `/accounts`, `/customers`, `/cards`, `/dashboard/top-customers`). Super Admin is strictly prevented from accessing individual customer PII, account numbers, balances, or transaction amounts, with views strictly limited to aggregate operational health, ML microservice status, staff provisioning, and audit logs.
+6. **Automated Verification:** 18-step end-to-end automated test suite passed with 100% success rate across password rejection, customer registration, unified MFA/OTP verification, Super Admin OTP login, data privacy boundary enforcement, and scoped security alerts.
+

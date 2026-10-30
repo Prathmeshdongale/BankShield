@@ -236,7 +236,12 @@ export const getAlertsService = async (user) => {
  * Customers with highest risk scores / most alerts. Staff roles only.
  */
 export const getTopCustomersService = async (user) => {
-  const ALLOWED = new Set(['super_admin','admin','compliance_officer',
+  if (user.role === 'super_admin') {
+    const e = new Error('ACCESS_DENIED_SUPER_ADMIN_RESTRICTED');
+    e.statusCode = 403;
+    throw e;
+  }
+  const ALLOWED = new Set(['fraud_analyst',
                            'fraud_analyst','branch_manager']);
   if (!ALLOWED.has(user.role)) {
     const e = new Error('CUSTOMER_ROLE_NOT_ALLOWED'); e.statusCode = 403; throw e;
