@@ -45,12 +45,16 @@ import {
 // permission sets change rarely. For multi-instance deployments swap this
 // for Redis or a short TTL.
 // ─────────────────────────────────────────────────────────────────────────────
+const CACHE_TTL_MS = 10_000;
 const permCache = new Map();
 
 const getCachedPermissions = async (roleId) => {
-  if (permCache.has(roleId)) return permCache.get(roleId);
+  const cached = permCache.get(roleId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.perms;
+  }
   const perms = await getPermissionsForRole(roleId);
-  permCache.set(roleId, perms);
+  permCache.set(roleId, { perms, expiresAt: Date.now() + CACHE_TTL_MS });
   return perms;
 };
 

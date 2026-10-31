@@ -11,11 +11,12 @@ export const accountService = {
   list  : (params = {}) => api.get('/accounts', { params }).then(r => r.data),
   get   : (id)          => api.get(`/accounts/${id}`).then(r => r.data),
   open  : (data)        => api.post('/accounts', data).then(r => r.data),
+  create: (data)        => api.post('/accounts', data).then(r => r.data),
   update: (id, data)    => api.patch(`/accounts/${id}`, data).then(r => r.data),
 
   freeze  : (id)  => api.patch(`/accounts/${id}/freeze`).then(r => r.data),
   activate: (id)  => api.patch(`/accounts/${id}/activate`).then(r => r.data),
-  close   : (id)  => api.patch(`/accounts/${id}/close`).then(r => r.data),
+  close   : (id, data = { zeroBalance: true }) => api.patch(`/accounts/${id}/close`, data).then(r => r.data),
 
   getBalance: (id) => api.get(`/accounts/${id}/balance`).then(r => r.data),
 

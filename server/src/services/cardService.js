@@ -30,6 +30,7 @@ import { logger }         from '../utils/logger.js';
 import { getClient }      from '../db/connection.js';
 import { insertAuditLog } from '../db/queries/authQueries.js';
 import { findAccountById } from '../db/queries/accountQueries.js';
+import { findCustomerByUserId } from '../db/queries/customerQueries.js';
 import {
   findCardById,
   listCardsByAccount,
@@ -42,6 +43,7 @@ import {
   listCardLimits,
   upsertCardLimit,
   deleteCardLimit,
+  deleteCard as dbDeleteCard,
 } from '../db/queries/cardQueries.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -272,4 +274,35 @@ export const deleteLimitService = async (cardId, limitType, meta = {}) => {
 
   logger.info(`Card limit deleted: card=****${card.card_last4} ${limitType}`);
   return deleted;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. DELETE / REMOVE CARD
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const deleteCardService = async (id, meta = {}) => {
+  const card = await findCardById(id);
+  if (!card) throw mkErr('CARD_NOT_FOUND', 404);
+
+  // If customer role, verify card belongs to customer
+  if (meta.customerUserId) {
+    const cust = await findCustomerByUserId(meta.customerUserId);
+    if (!cust || card.customer_id !== cust.id) {
+      throw mkErr('FORBIDDEN', 403);
+    }
+  }
+
+  const updated = await dbDeleteCard(id, meta.reason || 'Card removed by user');
+  if (!updated) throw mkErr('CARD_NOT_FOUND', 404);
+
+  await insertAuditLog({
+    userId: meta.actorId, action: 'CARD_REMOVED',
+    entityType: 'card', entityId: id,
+    oldValue: { status: card.status },
+    newValue: { status: 'blocked', deleted_at: 'NOW()' },
+    ipAddress: meta.ipAddress, userAgent: meta.userAgent, status: 'success',
+  });
+
+  logger.info(`Card removed: ****${card.card_last4}`);
+  return updated;
 };

@@ -34,6 +34,7 @@ import {
   listLimits,
   setLimit,
   deleteLimit,
+  deleteCard,
 } from '../controllers/cardController.js';
 
 const router = Router();
@@ -101,6 +102,13 @@ router.delete('/:id/limits/:limitType',
   authorize('cards:manage_limits'),
   ...deleteLimitValidator, validate,
   deleteLimit
+);
+
+// DELETE /api/cards/:id
+router.delete('/:id',
+  authorize('cards:read'),
+  ...cardIdValidator, validate,
+  deleteCard
 );
 
 export default router;

@@ -27,7 +27,7 @@
 import { logger }         from '../utils/logger.js';
 import { getClient }      from '../db/connection.js';
 import { insertAuditLog } from '../db/queries/authQueries.js';
-import { findCustomerById } from '../db/queries/customerQueries.js';
+import { findCustomerById, findCustomerByUserId } from '../db/queries/customerQueries.js';
 import {
   nextAccountNumber,
   listAccountTypes       as dbListAccountTypes,
@@ -261,8 +261,23 @@ export const closeAccountService = async (id, meta = {}) => {
   if (!existing) throw mkErr('ACCOUNT_NOT_FOUND', 404);
   if (existing.status === 'closed') throw mkErr('ACCOUNT_ALREADY_CLOSED', 409);
 
-  // Safety: do not allow closing an account with a positive balance
-  if (parseFloat(existing.balance) > 0) {
+  // If customer role, verify account belongs to them
+  if (meta.customerUserId) {
+    const cust = await findCustomerByUserId(meta.customerUserId);
+    if (!cust || existing.customer_id !== cust.id) {
+      throw mkErr('FORBIDDEN', 403);
+    }
+  }
+
+  // Safety / settlement: if zeroBalance is requested, zero out the balance
+  if (meta.zeroBalance && parseFloat(existing.balance) > 0) {
+    const client = await getClient();
+    try {
+      await client.query('UPDATE accounts SET balance = 0.00, updated_at = NOW() WHERE id = $1', [id]);
+    } finally {
+      client.release();
+    }
+  } else if (parseFloat(existing.balance) > 0) {
     throw mkErr('ACCOUNT_HAS_BALANCE', 400);
   }
 

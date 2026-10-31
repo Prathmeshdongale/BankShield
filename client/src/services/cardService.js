@@ -10,6 +10,9 @@ export const cardService = {
   reportLost  : (id)       => api.patch(`/cards/${id}/report-lost`).then(r => r.data),
   reportStolen: (id)       => api.patch(`/cards/${id}/report-stolen`).then(r => r.data),
   replace   : (id)         => api.post(`/cards/${id}/replace`).then(r => r.data),
+  delete    : (id)         => api.delete(`/cards/${id}`).then(r => r.data),
+  remove    : (id)         => api.delete(`/cards/${id}`).then(r => r.data),
+  issue     : (accountId, data) => api.post(`/accounts/${accountId}/cards`, data).then(r => r.data),
 
   // Limits
   listLimits : (id)                    => api.get(`/cards/${id}/limits`).then(r => r.data),

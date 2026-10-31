@@ -10,7 +10,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link }                from 'react-router-dom';
-import { ArrowLeftRight, RefreshCw, Send, Search } from 'lucide-react';
+import { ArrowLeftRight, RefreshCw, Send, Search, ShieldAlert } from 'lucide-react';
 import { transactionService }  from '@/services/transactionService';
 import { RiskBadge }           from '@/components/fraud/RiskBadge';
 import { StatusBadge }         from '@/components/ui/StatusBadge';

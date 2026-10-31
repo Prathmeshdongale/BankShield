@@ -47,7 +47,7 @@
 
 import crypto          from 'crypto';
 import { logger }      from '../utils/logger.js';
-import { getClient }   from '../db/connection.js';
+import { getClient, query as poolQuery }   from '../db/connection.js';
 import { insertAuditLog } from '../db/queries/authQueries.js';
 import { evaluateTransactionRisk } from './fraudEngineService.js';
 import {
@@ -766,7 +766,15 @@ export const getTransactionService = async (idOrRef) => {
 };
 
 // ── 10. LIST TRANSACTIONS ─────────────────────────────────────────────────────
-export const listTransactionsService = async (queryParams = {}) => {
+export const listTransactionsService = async (queryParams = {}, user = null) => {
+  let customerId = queryParams.customerId || null;
+  if (user?.role === 'customer' && !customerId) {
+    const { rows } = await poolQuery(
+      'SELECT id FROM customers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1;',
+      [user.id]
+    );
+    if (rows.length > 0) customerId = rows[0].id;
+  }
   const limit  = Math.min(parseInt(queryParams.limit,  10) || 50, 200);
   const offset = Math.max(parseInt(queryParams.offset, 10) || 0,  0);
   const page   = Math.floor(offset / limit) + 1;
@@ -779,7 +787,7 @@ export const listTransactionsService = async (queryParams = {}) => {
 
   const { rows, total } = await dbListTransactions({
     accountId  : queryParams.accountId   || null,
-    customerId : queryParams.customerId  || null,
+    customerId,
     status     : queryParams.status      || null,
     txnType    : queryParams.txnType     || null,
     channel    : queryParams.channel     || null,

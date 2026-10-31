@@ -228,7 +228,7 @@ export const getTransaction = async (req, res) => {
 /** GET /api/transactions */
 export const listTransactions = async (req, res) => {
   try {
-    const result = await listTransactionsService(req.query);
+    const result = await listTransactionsService(req.query, req.user);
     return success(res, result, 'Transactions retrieved.');
   } catch (err) { return handleErr(err, res); }
 };

@@ -52,8 +52,9 @@ const Login = () => {
   const [isVerifying,  setIsVerifying]  = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } =
     useForm({ resolver: zodResolver(loginSchema) });
+  const watchedEmail = watch('email');
 
   // Cooldown countdown
   useEffect(() => {
@@ -305,6 +306,22 @@ const Login = () => {
                   {...register('email')}
                 />
                 <FieldError error={errors.email} />
+                {watchedEmail?.toLowerCase()?.includes('admin') && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Super Admin uses Passwordless OTP.
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginMode('superadmin');
+                        setAdminEmail(watchedEmail);
+                      }}
+                      className="underline hover:text-amber-800 font-semibold ml-1"
+                    >
+                      Switch to OTP Tab
+                    </button>
+                  </p>
+                )}
               </div>
 
               <div>

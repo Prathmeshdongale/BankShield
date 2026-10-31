@@ -28,6 +28,7 @@ import {
   listLimitsService,
   setLimitService,
   deleteLimitService,
+  deleteCardService,
 } from '../services/cardService.js';
 import { success, failure } from '../utils/response.js';
 import { logger }           from '../utils/logger.js';
@@ -182,4 +183,16 @@ export const deleteLimit = async (req, res) => {
 export default {
   issueCard, listCards, getCard, blockCard, unblockCard,
   reportLost, reportStolen, replaceCard, listLimits, setLimit, deleteLimit,
+};
+
+// DELETE /api/cards/:id
+export const deleteCard = async (req, res) => {
+  try {
+    const meta = getMeta(req);
+    if (req.user?.role === 'customer') {
+      meta.customerUserId = req.user.id;
+    }
+    const card = await deleteCardService(req.params.id, meta);
+    return success(res, { card }, 'Card removed successfully.');
+  } catch (err) { return handleErr(err, res); }
 };

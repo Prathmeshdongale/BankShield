@@ -17,7 +17,7 @@ const uuidParam = (name) =>
 // ─── 1. OPEN ACCOUNT ─────────────────────────────────────────────────────────
 export const openAccountValidator = [
   body('customerId')
-    .trim().notEmpty().withMessage('customerId is required.')
+    .optional({ nullable: true })
     .isUUID(4).withMessage('customerId must be a valid UUID v4.'),
 
   body('accountType')

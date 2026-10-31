@@ -275,3 +275,20 @@ export const deleteCardLimit = async (cardId, limitType, client = null) => {
   `, [cardId, limitType]);
   return rows[0] ?? null;
 };
+
+/**
+ * Soft-delete a card (sets status = 'blocked', blocked_reason = 'Card removed by user', deleted_at = NOW()).
+ */
+export const deleteCard = async (id, reason = 'Card removed by user', client = null) => {
+  const { rows } = await run(client, `
+    UPDATE cards
+    SET    status         = 'blocked',
+           blocked_at     = NOW(),
+           blocked_reason = $2,
+           deleted_at     = NOW(),
+           updated_at     = NOW()
+    WHERE  id = $1 AND deleted_at IS NULL
+    RETURNING *;
+  `, [id, reason]);
+  return rows[0] ? safeCard(rows[0]) : null;
+};

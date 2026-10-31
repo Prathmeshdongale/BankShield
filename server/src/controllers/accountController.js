@@ -28,6 +28,7 @@ import {
 } from '../services/accountService.js';
 import { success, failure } from '../utils/response.js';
 import { logger }           from '../utils/logger.js';
+import { findCustomerByUserId } from '../db/queries/customerQueries.js';
 
 const getMeta = (req) => ({
   actorId  : req.user?.id   ?? null,
@@ -78,7 +79,12 @@ export const listAccountTypes = async (_req, res) => {
 // POST /api/accounts
 export const openAccount = async (req, res) => {
   try {
-    const { customerId, accountType, branchId, currency, nomineeName, jointHolderId } = req.body;
+    let { customerId, accountType, branchId, currency, nomineeName, jointHolderId } = req.body;
+    if (!customerId && req.user?.role === 'customer') {
+      const cust = await findCustomerByUserId(req.user.id);
+      if (!cust) return failure(res, 'Customer profile not found for current user.', 404);
+      customerId = cust.id;
+    }
     const account = await openAccountService(
       { customerId, accountType, branchId, currency, nomineeName, jointHolderId },
       getMeta(req)
@@ -131,8 +137,13 @@ export const activateAccount = async (req, res) => {
 // PATCH /api/accounts/:id/close
 export const closeAccount = async (req, res) => {
   try {
-    const account = await closeAccountService(req.params.id, getMeta(req));
-    return success(res, { account }, 'Account closed.');
+    const meta = getMeta(req);
+    if (req.user?.role === 'customer') {
+      meta.customerUserId = req.user.id;
+    }
+    meta.zeroBalance = req.body?.zeroBalance ?? true;
+    const account = await closeAccountService(req.params.id, meta);
+    return success(res, { account }, 'Account closed successfully.');
   } catch (err) { return handleErr(err, res); }
 };
 

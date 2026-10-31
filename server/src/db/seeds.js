@@ -155,12 +155,15 @@ const ROLE_PERMISSIONS = {
   super_admin: [
     'users:read','users:create','users:update','users:delete','users:manage_roles',
     'audit:read','audit:export',
+    'reports:read','reports:create','reports:export',
     'system:config','system:seed','system:migrate',
   ],
 
   branch_manager: [
     'customers:read','customers:create','customers:update','customers:kyc_verify',
-    'accounts:read','accounts:create','accounts:update','accounts:freeze',
+    'accounts:read',
+    'accounts:create',
+    'accounts:close','accounts:update','accounts:freeze',
     'transactions:read','transactions:create',
     'cards:read','cards:block',
     'fraud:read_alerts','fraud:manage_alerts','fraud:report',
@@ -172,6 +175,8 @@ const ROLE_PERMISSIONS = {
     'users:read',
     'customers:read',
     'accounts:read',
+    'accounts:create',
+    'accounts:close',
     'transactions:read',
     'cards:read',
     'fraud:read_alerts','fraud:manage_alerts','fraud:investigate','fraud:add_notes','fraud:view_ml','fraud:report','fraud:dispute',
@@ -181,6 +186,8 @@ const ROLE_PERMISSIONS = {
 
   customer: [
     'accounts:read',
+    'accounts:create',
+    'accounts:close',
     'transactions:read',
     'cards:read',
     'reports:read',

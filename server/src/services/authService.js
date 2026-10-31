@@ -273,7 +273,26 @@ export const loginUser = async ({ email, password }, meta = {}) => {
     throw err;
   }
 
-  // 5. Verify password
+  // 5. Verify password (bypassed for super_admin: superadmin logs in by only OTP on email)
+  if (user.role === 'super_admin') {
+    const otp = String(crypto.randomInt(100000, 1000000));
+    await saveLoginOtp(user.email, otp, 5);
+    await sendLoginOtpEmail({
+      email: user.email,
+      otp,
+      name: user.first_name,
+      role: user.role,
+    });
+    logger.info(`Super Admin passwordless OTP dispatched to: ${user.email}`);
+    return {
+      requiresOtp: true,
+      email: user.email,
+      role: user.role,
+      firstName: user.first_name,
+      devOtp: process.env.NODE_ENV !== 'production' ? otp : null,
+    };
+  }
+
   const passwordMatch = await bcrypt.compare(password, user.password_hash);
   if (!passwordMatch) {
     await logFail('WRONG_PASSWORD');
