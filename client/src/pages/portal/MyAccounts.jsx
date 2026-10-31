@@ -16,7 +16,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Building2, RefreshCw, ChevronRight, TrendingUp, Plus,
-  AlertTriangle, XCircle, CheckCircle2, Shield
+  AlertTriangle, XCircle, CheckCircle2, Shield, Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { accountService } from '@/services/accountService';
@@ -173,12 +173,12 @@ const MyAccounts = () => {
         zeroBalance: true,
         verificationToken,
       });
-      toast.success(`Account ${accountToClose.account_number} closed successfully.`);
+      toast.success(`Account ${accountToClose.account_number} removed successfully from web.`);
       setShowCloseOtp(false);
       setAccountToClose(null);
       await load();
     } catch (err) {
-      toast.error(err?.response?.data?.error ?? 'Failed to close account.');
+      toast.error(err?.response?.data?.error ?? 'Failed to remove account.');
     } finally {
       setClosing(false);
     }
@@ -199,7 +199,7 @@ const MyAccounts = () => {
             <Building2 className="h-6 w-6 text-blue-600" /> My Accounts
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Manage your bank accounts, review balances, and open or close accounts.
+            Manage your linked bank accounts, review balances, and link or remove accounts from BankShield.
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -312,10 +312,11 @@ const MyAccounts = () => {
                           e.stopPropagation();
                           setAccountToClose(a);
                         }}
-                        className="rounded-md bg-white/10 hover:bg-rose-500/80 px-2 py-1 text-[11px] font-medium text-white transition backdrop-blur-sm"
-                        title="Close / settle account"
+                        className="inline-flex items-center gap-1 rounded-md bg-white/10 hover:bg-rose-500/80 px-2.5 py-1 text-[11px] font-medium text-white transition backdrop-blur-sm"
+                        title="Remove bank account from this web"
                       >
-                        Close
+                        <Trash2 className="h-3 w-3" />
+                        <span>Remove Account</span>
                       </button>
                     )}
                     <Link
@@ -472,28 +473,27 @@ const MyAccounts = () => {
         </form>
       </Modal>
 
-      {/* ── Modal: Confirm Close Account ──────────────────────────────────── */}
+      {/* ── Modal: Confirm Remove Account from Web ─────────────────────────── */}
       {accountToClose && (
         <Modal
           open={Boolean(accountToClose) && !showCloseOtp}
           onClose={() => !closing && setAccountToClose(null)}
-          title="Close Account Confirmation"
+          title="Remove Bank Account from Web"
           size="sm"
         >
           <div className="space-y-3">
             <div className="flex items-center gap-3 rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-xs text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
               <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
               <div>
-                <p className="font-semibold">Closing Account {accountToClose.account_number}</p>
+                <p className="font-semibold">Removing Account {accountToClose.account_number}</p>
                 <p className="text-[11px] mt-0.5 text-rose-800 dark:text-rose-300">
-                  This action will settle any remaining balance of{' '}
-                  <strong>{fmtAmt(accountToClose.balance, accountToClose.currency)}</strong> and permanently mark the account as closed.
+                  This action will remove this bank account from your BankShield monitoring profile and settle its active web session.
                 </p>
               </div>
             </div>
 
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              Are you sure you want to close this <strong>{accountToClose.account_type?.replace(/_/g, ' ')}</strong>? For security, a 6-digit one-time verification code will be sent to your email.
+              Are you sure you want to remove this <strong>{accountToClose.account_type?.replace(/_/g, ' ')}</strong> from this website? For security, a 6-digit one-time verification code will be sent to your email.
             </p>
 
             <div className="mt-5 flex justify-end gap-3 pt-2">
@@ -517,7 +517,7 @@ const MyAccounts = () => {
         </Modal>
       )}
 
-      {/* ── Security OTP Verification for Account Closure ─────────────────── */}
+      {/* ── Security OTP Verification for Account Removal ─────────────────── */}
       <SecurityOtpModal
         open={showCloseOtp}
         onClose={() => {
@@ -526,9 +526,9 @@ const MyAccounts = () => {
         }}
         onVerified={handleVerifiedClose}
         purpose="account_closure"
-        title="Verify Account Closure"
-        description={`To securely close account ${accountToClose?.account_number || ''} and settle its balance, please enter the one-time code sent to your email.`}
-        actionButtonText="Authorize & Close Account"
+        title="Verify Account Removal"
+        description={`To securely remove account ${accountToClose?.account_number || ''} from BankShield, please enter the one-time code sent to your email.`}
+        actionButtonText="Authorize & Remove Account"
       />
 
     </div>
