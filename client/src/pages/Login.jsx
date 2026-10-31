@@ -68,6 +68,27 @@ const Login = () => {
   // ── Step 1 (Standard): Submit Email + Password ──────────────────────────────
   const onCredentialsSubmit = async ({ email, password }) => {
     setApiError('');
+    // Super Admin exclusively logs in by email OTP (never password)
+    if (email?.toLowerCase()?.includes('admin')) {
+      setLoginMode('superadmin');
+      setAdminEmail(email);
+      setIsSendingAdminOtp(true);
+      try {
+        const res = await sendSuperAdminOtp(email);
+        setUserEmail(email);
+        setUserRole('super_admin');
+        setUserName('Super Admin');
+        if (res?.devOtp) setDevOtp(res.devOtp);
+        setStep('otp');
+        setResendCooldown(30);
+      } catch (err) {
+        setApiError(err?.response?.data?.error ?? 'Failed to dispatch Super Admin OTP.');
+      } finally {
+        setIsSendingAdminOtp(false);
+      }
+      return;
+    }
+
     try {
       const res = await login(email, password);
 
@@ -394,59 +415,65 @@ const Login = () => {
                   Register as a New Customer
                 </Link>
               </div>
-
-              {/* Demo Quick Fills for Evaluation */}
-              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700/60 dark:bg-slate-800/60 dark:text-slate-300">
-                <div className="mb-2 flex items-center justify-between font-semibold">
-                  <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-                    <KeyRound className="h-3.5 w-3.5 text-blue-500" />
-                    Quick Fill Test Credentials
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginMode('superadmin');
-                      setAdminEmail('superadmin@bankshield.internal');
-                    }}
-                    className="rounded border border-amber-200 bg-amber-50/80 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                  >
-                    Super Admin (OTP)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setValue('email', 'analyst@bankshield.in', { shouldValidate: true });
-                      setValue('password', 'Analyst@12345!', { shouldValidate: true });
-                    }}
-                    className="rounded border border-blue-200 bg-blue-50/80 px-2 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
-                  >
-                    Fraud Analyst
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setValue('email', 'manager@bankshield.internal', { shouldValidate: true });
-                      setValue('password', 'BranchManager@2025!', { shouldValidate: true });
-                    }}
-                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                  >
-                    Branch Manager
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setValue('email', 'samdae@email.com', { shouldValidate: true });
-                      setValue('password', 'BankShield@Sam2025!', { shouldValidate: true });
-                    }}
-                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                  >
-                    Customer
-                  </button>
-                </div>
-              </div>
             </form>
+          )}
+
+          {/* Demo Quick Fills for Evaluation (Always accessible on Credentials step) */}
+          {step === 'credentials' && (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700/60 dark:bg-slate-800/60 dark:text-slate-300">
+              <div className="mb-2 flex items-center justify-between font-semibold">
+                <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
+                  <KeyRound className="h-3.5 w-3.5 text-blue-500" />
+                  Quick Fill Test Credentials
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMode('superadmin');
+                    setAdminEmail('superadmin@bankshield.internal');
+                  }}
+                  className="rounded border border-amber-200 bg-amber-50/80 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 flex items-center justify-center gap-1"
+                >
+                  <ShieldCheck className="h-3 w-3 text-amber-600" />
+                  Super Admin (OTP Only)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMode('standard');
+                    setValue('email', 'analyst@bankshield.in', { shouldValidate: true });
+                    setValue('password', 'Analyst@12345!', { shouldValidate: true });
+                  }}
+                  className="rounded border border-blue-200 bg-blue-50/80 px-2 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                >
+                  Fraud Analyst
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMode('standard');
+                    setValue('email', 'manager@bankshield.internal', { shouldValidate: true });
+                    setValue('password', 'BranchManager@2025!', { shouldValidate: true });
+                  }}
+                  className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                >
+                  Branch Manager
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMode('standard');
+                    setValue('email', 'samdae@email.com', { shouldValidate: true });
+                    setValue('password', 'BankShield@Sam2025!', { shouldValidate: true });
+                  }}
+                  className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                >
+                  Customer
+                </button>
+              </div>
+            </div>
           )}
 
           {/* ── STEP 2: OTP VERIFICATION FORM ───────────────────────────────── */}

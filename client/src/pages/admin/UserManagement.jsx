@@ -14,11 +14,9 @@ import { userService } from '@/services/userService';
 
 const ROLES = [
   { value: 'all', label: 'All Roles' },
-  { value: 'super_admin', label: 'Super Admin' },
-  { value: 'admin', label: 'Admin' },
+  { value: 'super_admin', label: 'Super Admin (OTP Verification)' },
   { value: 'branch_manager', label: 'Branch Manager' },
   { value: 'fraud_analyst', label: 'Fraud Analyst' },
-  { value: 'teller', label: 'Teller' },
   { value: 'customer', label: 'Customer' },
 ];
 
