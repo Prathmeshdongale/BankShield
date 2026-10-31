@@ -417,12 +417,22 @@ const Login = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setValue('email', 'superadmin@bankshield.internal', { shouldValidate: true });
-                      setValue('password', 'BankShield@Super2025!', { shouldValidate: true });
+                      setValue('email', 'analyst@bankshield.in', { shouldValidate: true });
+                      setValue('password', 'Analyst@12345!', { shouldValidate: true });
+                    }}
+                    className="rounded border border-blue-200 bg-blue-50/80 px-2 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                  >
+                    Fraud Analyst
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'manager@bankshield.internal', { shouldValidate: true });
+                      setValue('password', 'BranchManager@2025!', { shouldValidate: true });
                     }}
                     className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200"
                   >
-                    Super Admin (Pwd)
+                    Branch Manager
                   </button>
                   <button
                     type="button"
@@ -433,16 +443,6 @@ const Login = () => {
                     className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200"
                   >
                     Customer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setValue('email', 'analyst@bankshield.in', { shouldValidate: true });
-                      setValue('password', 'Analyst@12345!', { shouldValidate: true });
-                    }}
-                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                  >
-                    Fraud Analyst
                   </button>
                 </div>
               </div>
