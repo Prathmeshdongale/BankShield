@@ -97,7 +97,7 @@ export const atmWithdrawalValidator = [
 // ─── 7. ONLINE PAYMENT ───────────────────────────────────────────────────────
 export const onlinePaymentValidator = [
   uuidBody('accountId').notEmpty().withMessage('accountId is required.'),
-  uuidBody('cardId').notEmpty().withMessage('cardId is required.'),
+  uuidBody('cardId').optional({ nullable: true, checkFalsy: true }),
   amountBody(),
   body('currency').optional().trim().isLength({ min: 3, max: 3 }),
   body('channel').optional().isIn(['web','mobile']).withMessage('Online payment channel must be web or mobile.'),

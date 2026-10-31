@@ -607,7 +607,7 @@ export const onlinePaymentService = async ({
   description = null, channel = 'web',
   idempotencyKey = null, metadata = null,
 }, meta = {}) => {
-  if (!cardId) throw mkErr('CARD_REQUIRED', 400);
+  // cardId is optional for simulated web payments
   const ALLOWED = ['web', 'mobile'];
   if (!ALLOWED.includes(channel)) throw mkErr('INVALID_CHANNEL', 400);
 
@@ -768,12 +768,18 @@ export const getTransactionService = async (idOrRef) => {
 // ── 10. LIST TRANSACTIONS ─────────────────────────────────────────────────────
 export const listTransactionsService = async (queryParams = {}, user = null) => {
   let customerId = queryParams.customerId || null;
-  if (user?.role === 'customer' && !customerId) {
+  if (user?.role === 'customer') {
     const { rows } = await poolQuery(
       'SELECT id FROM customers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1;',
       [user.id]
     );
-    if (rows.length > 0) customerId = rows[0].id;
+    if (rows.length === 0) {
+      return {
+        data: [],
+        pagination: { total: 0, limit: 20, offset: 0, page: 1, pages: 0 },
+      };
+    }
+    customerId = rows[0].id;
   }
   const limit  = Math.min(parseInt(queryParams.limit,  10) || 50, 200);
   const offset = Math.max(parseInt(queryParams.offset, 10) || 0,  0);

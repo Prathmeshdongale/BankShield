@@ -28,7 +28,7 @@ import jwt             from 'jsonwebtoken';
 import crypto          from 'crypto';
 import { config }      from '../config/index.js';
 import { logger }      from '../utils/logger.js';
-import { getClient }   from '../db/connection.js';
+import { getClient, query as poolQuery }   from '../db/connection.js';
 import {
   findUserByEmail,
   findUserByPhone,
@@ -142,6 +142,16 @@ export const initAuthTables = async () => {
   await ensureRefreshTokensTable();
   await ensurePasswordResetTable();
   await ensureLoginOtpTable();
+  try {
+    await poolQuery(`
+      INSERT INTO role_permissions (role_id, permission_id)
+      SELECT r.id, p.id FROM roles r, permissions p
+      WHERE r.name = 'customer' AND p.code = 'transactions:create'
+      ON CONFLICT DO NOTHING;
+    `);
+  } catch (err) {
+    logger.warn(`Could not verify customer transactions:create permission: ${err.message}`);
+  }
   logger.info('Auth runtime tables verified.');
 };
 

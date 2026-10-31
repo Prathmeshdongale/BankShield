@@ -32,6 +32,8 @@ import {
 } from '../services/cardService.js';
 import { success, failure } from '../utils/response.js';
 import { logger }           from '../utils/logger.js';
+import { findCustomerByUserId } from '../db/queries/customerQueries.js';
+import { findAccountById }      from '../db/queries/accountQueries.js';
 
 const getMeta = (req) => ({
   actorId  : req.user?.id   ?? null,
@@ -96,6 +98,13 @@ export const issueCard = async (req, res) => {
 // GET /api/accounts/:accountId/cards
 export const listCards = async (req, res) => {
   try {
+    if (req.user?.role === 'customer') {
+      const cust = await findCustomerByUserId(req.user.id);
+      const acct = await findAccountById(req.params.accountId);
+      if (!cust || !acct || acct.customer_id !== cust.id) {
+        return failure(res, 'Account not found.', 404);
+      }
+    }
     const includeInactive = req.query.includeInactive === 'true';
     const cards = await listCardsService(req.params.accountId, includeInactive);
     return success(res, { cards }, 'Cards retrieved.');

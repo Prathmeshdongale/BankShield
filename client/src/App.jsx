@@ -177,7 +177,7 @@ function App() {
                   <Route path="portal/cards/:id"      element={<CardDetail />} />
                   <Route path="portal/transactions"   element={<MyTransactions />} />
                   <Route path="portal/alerts"         element={<MyAlerts />} />
-                  <Route path="portal/security-verification" element={<SecurityOtpVerification />} />
+                  <Route path="portal/security-verification" element={<Navigate to="/profile?tab=otp" replace />} />
                 </Route>
               </Route>
 

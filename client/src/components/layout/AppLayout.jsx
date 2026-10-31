@@ -50,20 +50,19 @@ export const AppLayout = () => {
         {/* Sidebar */}
         <div className={cn(
           'fixed left-0 top-0 z-30 h-full transition-all duration-300 ease-in-out',
-          'border-r border-slate-200 bg-white',
-          'dark:border-slate-700/40 dark:bg-gray-900',
-          sidebarOpen ? 'w-64' : 'w-20'
+          'border-r border-slate-800 bg-slate-900',
+          sidebarOpen ? 'w-64' : 'w-16'
         )}>
           {isSuperAdmin
-            ? <SuperAdminSidebar className="h-full" />
-            : <Sidebar className="h-full" />
+            ? <SuperAdminSidebar className="h-full" collapsed={!sidebarOpen} onToggle={() => setSidebarOpen(o => !o)} />
+            : <Sidebar className="h-full" collapsed={!sidebarOpen} onToggle={() => setSidebarOpen(o => !o)} />
           }
         </div>
 
         {/* Main content */}
         <main className={cn(
           'flex-1 overflow-y-auto p-6 lg:p-8 transition-all duration-300 ease-in-out',
-          sidebarOpen ? 'ml-64' : 'ml-20'
+          sidebarOpen ? 'ml-64' : 'ml-16'
         )}>
           <Outlet />
         </main>

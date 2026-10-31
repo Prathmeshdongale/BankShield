@@ -216,7 +216,7 @@ export const insertTransaction = async ({
       $11, $12, $13,
       $14::inet, $15, $16, $17,
       $18, $19, $20,
-      $21, $22, $23, $24, $25
+      $21, $22, $23, $24, $25, $26, $27
     )
     RETURNING
       id, transaction_ref, source_account_id, destination_account_id,

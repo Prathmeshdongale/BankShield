@@ -97,6 +97,12 @@ export const openAccount = async (req, res) => {
 export const getAccount = async (req, res) => {
   try {
     const account = await getAccountService(req.params.id);
+    if (req.user?.role === 'customer') {
+      const cust = await findCustomerByUserId(req.user.id);
+      if (!cust || account.customer_id !== cust.id) {
+        return failure(res, 'Account not found.', 404);
+      }
+    }
     return success(res, { account }, 'Account retrieved.');
   } catch (err) { return handleErr(err, res); }
 };
@@ -104,7 +110,15 @@ export const getAccount = async (req, res) => {
 // GET /api/accounts
 export const listAccounts = async (req, res) => {
   try {
-    const result = await listAccountsService(req.query);
+    const query = { ...req.query };
+    if (req.user?.role === 'customer') {
+      const cust = await findCustomerByUserId(req.user.id);
+      if (!cust) {
+        return success(res, { data: [], pagination: { total: 0, page: 1, pages: 0, limit: 20, offset: 0 } }, 'Accounts retrieved.');
+      }
+      query.customerId = cust.id;
+    }
+    const result = await listAccountsService(query);
     return success(res, result, 'Accounts retrieved.');
   } catch (err) { return handleErr(err, res); }
 };

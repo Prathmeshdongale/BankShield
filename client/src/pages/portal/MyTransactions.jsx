@@ -10,7 +10,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link }                from 'react-router-dom';
-import { ArrowLeftRight, RefreshCw, Send, Search, ShieldAlert } from 'lucide-react';
+import { ArrowLeftRight, RefreshCw, Send, Search, ShieldAlert, Plus } from 'lucide-react';
 import { transactionService }  from '@/services/transactionService';
 import { RiskBadge }           from '@/components/fraud/RiskBadge';
 import { StatusBadge }         from '@/components/ui/StatusBadge';
@@ -21,6 +21,7 @@ import { Pagination }          from '@/components/ui/Pagination';
 import { InlineLoader }        from '@/components/ui/LoadingOverlay';
 import { ErrorMessage }        from '@/components/ui/ErrorMessage';
 import TransactionDrawer       from '@/pages/transactions/TransactionDrawer';
+import { AddTransactionModal } from '@/components/transactions/AddTransactionModal';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 const TXN_TYPES = ['', 'credit', 'debit', 'transfer', 'deposit', 'withdrawal', 'payment', 'reversal', 'fee', 'interest'];
@@ -51,8 +52,9 @@ const MyTransactions = () => {
   const [dateTo,    setDateTo]    = useState('');
   const [page,      setPage]      = useState(1);
 
-  // Drawer
-  const [selTxn, setSelTxn] = useState(null);
+  // Drawer & Add Transaction Modal
+  const [selTxn,     setSelTxn]     = useState(null);
+  const [showAddTxn, setShowAddTxn] = useState(false);
 
   const load = useCallback(async (pg = page) => {
     setLoading(true); setError('');
@@ -100,7 +102,14 @@ const MyTransactions = () => {
             Your complete transaction history.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setShowAddTxn(true)}
+            className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+          >
+            <Plus className="h-4 w-4" /> Add Transaction
+          </Button>
           <Link to="/portal/alerts">
             <Button variant="outline" size="sm" className="gap-1.5 border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-300">
               <ShieldAlert className="h-4 w-4 text-amber-600" /> Security Alerts
@@ -239,6 +248,13 @@ const MyTransactions = () => {
 
       {/* ── Transaction detail drawer ────────────────────────────────────────── */}
       <TransactionDrawer txn={selTxn} onClose={() => setSelTxn(null)} />
+
+      {/* ── Add & Simulate Transaction Modal ─────────────────────────────────── */}
+      <AddTransactionModal
+        open={showAddTxn}
+        onClose={() => setShowAddTxn(false)}
+        onSuccess={() => load(1)}
+      />
     </div>
   );
 };

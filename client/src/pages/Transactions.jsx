@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeftRight, RefreshCw, Filter, X,
-  ChevronUp, ChevronDown, AlertTriangle,
+  ChevronUp, ChevronDown, AlertTriangle, Plus
 } from 'lucide-react';
 import { useTransactions }  from '@/hooks/useTransactions';
 import { Button }           from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { Pagination }       from '@/components/ui/Pagination';
 import { InlineLoader }     from '@/components/ui/LoadingOverlay';
 import { ErrorMessage }     from '@/components/ui/ErrorMessage';
 import TransactionDrawer    from '@/pages/transactions/TransactionDrawer';
+import { AddTransactionModal } from '@/components/transactions/AddTransactionModal';
 
 const TXN_TYPES  = ['','credit','debit','transfer','deposit','withdrawal','payment','reversal','fee'];
 const STATUSES   = ['','pending','processing','completed','failed','flagged','blocked','reversed'];
@@ -33,6 +34,7 @@ export const Transactions = () => {
 
   const [showFilters, setShowFilters] = useState(false);
   const [selected,    setSelected]    = useState(null);  // transaction for drawer
+  const [showAddTxn,  setShowAddTxn]  = useState(false);
 
   const clearFilters = () =>
     setFilters({ status:'', txnType:'', channel:'', dateFrom:'', dateTo:'', isFraud:'', page:1 });
@@ -53,7 +55,14 @@ export const Transactions = () => {
             Append-only ledger — all transactions, scored by the XGBoost fraud engine.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setShowAddTxn(true)}
+            className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+          >
+            <Plus className="h-4 w-4" /> Add Transaction
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowFilters(f => !f)}
             className={`gap-1.5 ${hasActive ? 'border-blue-500 text-blue-600' : ''}`}>
             <Filter className="h-3.5 w-3.5" />
@@ -64,9 +73,6 @@ export const Transactions = () => {
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Link to="/transfer">
-            <Button size="sm" className="gap-1.5">+ New Transaction</Button>
-          </Link>
         </div>
       </div>
 
@@ -182,6 +188,13 @@ export const Transactions = () => {
 
       {/* Detail drawer */}
       <TransactionDrawer txn={selected} onClose={() => setSelected(null)} />
+
+      {/* Add & Simulate Transaction Modal */}
+      <AddTransactionModal
+        open={showAddTxn}
+        onClose={() => setShowAddTxn(false)}
+        onSuccess={refetch}
+      />
     </div>
   );
 };

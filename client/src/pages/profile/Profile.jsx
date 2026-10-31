@@ -11,17 +11,19 @@
  *   • Calls AuthContext.refreshUser() after successful update
  */
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   User, Lock, Camera, CheckCircle2,
   Loader2, Shield, Mail, Phone, Badge,
-  AlertCircle, Check, ArrowRight, ShieldCheck
+  AlertCircle, Check, ArrowRight, ShieldCheck, KeyRound
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authService } from '@/services/authService';
 import { useAuth } from '@/context/AuthContext';
+import SecurityOtpVerification from '@/pages/portal/SecurityOtpVerification';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -272,7 +274,8 @@ const ProfileCompletionMetric = ({ user, onFocusField }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const Profile = () => {
   const { user, refreshUser } = useAuth();
-  const [tab, setTab] = useState('profile');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(searchParams.get('tab') || 'profile');
 
   // ── Profile form ────────────────────────────────────────────────────────
   const {
@@ -332,12 +335,13 @@ const Profile = () => {
   };
 
   const tabs = [
-    { id: 'profile',  label: 'Profile',  Icon: User },
-    { id: 'security', label: 'Security', Icon: Lock },
+    { id: 'profile',  label: 'Personal Profile',       Icon: User },
+    { id: 'security', label: 'Password & Auth',        Icon: Lock },
+    { id: 'otp',      label: 'OTP & 2FA Verification', Icon: KeyRound },
   ];
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 animate-fade-in">
+    <div className="mx-auto max-w-3xl space-y-6 animate-fade-in">
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <div>
@@ -353,8 +357,14 @@ const Profile = () => {
       <ProfileCompletionMetric
         user={user}
         onFocusField={(field) => {
-          setTab('profile');
-          setTimeout(() => focusP(field), 100);
+          if (field === 'otp' || field === 'mfa') {
+            setTab('otp');
+          } else if (field === 'password') {
+            setTab('security');
+          } else {
+            setTab('profile');
+            setTimeout(() => focusP(field), 100);
+          }
         }}
       />
 
@@ -577,6 +587,13 @@ const Profile = () => {
               </dl>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* ── OTP & 2FA Verification tab ────────────────────────────────────── */}
+      {tab === 'otp' && (
+        <div className="space-y-4">
+          <SecurityOtpVerification />
         </div>
       )}
     </div>
