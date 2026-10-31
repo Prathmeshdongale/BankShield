@@ -37,6 +37,7 @@ const REPORT_SELECT = `
     r.parameters, r.status, r.file_upload_id,
     r.error_message, r.started_at, r.completed_at, r.expires_at,
     r.created_at, r.updated_at,
+    COALESCE(r.parameters->>'format', 'pdf') AS format,
     u.first_name AS requester_first_name,
     u.last_name  AS requester_last_name,
     u.email      AS requester_email,

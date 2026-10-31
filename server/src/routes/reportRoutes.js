@@ -34,7 +34,7 @@ router.use(authenticate);
 router.get(  '/',             authorize('reports:read'),   ...listReportsValidator, validate, listReports);
 router.post( '/',             authorize('reports:create'), ...requestReportValidator, validate, requestReport);
 router.get(  '/:id',         authorize('reports:read'),   ...reportIdValidator, validate, getReport);
-router.get(  '/:id/download',authorize('reports:export'), ...reportIdValidator, validate, downloadReport);
+router.get(  '/:id/download',authorize('reports:export', 'reports:create'), ...reportIdValidator, validate, downloadReport);
 router.delete('/:id',        authorize('reports:create'), ...reportIdValidator, validate, deleteReport);
 
 export default router;

@@ -166,8 +166,8 @@ const ROLE_PERMISSIONS = {
     'accounts:close','accounts:update','accounts:freeze',
     'transactions:read','transactions:create',
     'cards:read','cards:block',
-    'fraud:read_alerts','fraud:manage_alerts','fraud:report',
-    'reports:read','reports:create',
+    'fraud:read_alerts','fraud:manage_alerts','fraud:add_notes','fraud:report',
+    'reports:read','reports:create','reports:export',
     'audit:read',
   ],
 
@@ -180,7 +180,7 @@ const ROLE_PERMISSIONS = {
     'transactions:read',
     'cards:read',
     'fraud:read_alerts','fraud:manage_alerts','fraud:investigate','fraud:add_notes','fraud:view_ml','fraud:report','fraud:dispute',
-    'reports:read','reports:create',
+    'reports:read','reports:create','reports:export',
     'audit:read',
   ],
 

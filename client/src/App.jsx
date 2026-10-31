@@ -161,10 +161,14 @@ function App() {
                     <Route path="branch/reports"      element={<Reports />} />
                   </Route>
 
-                  {/* Fraud Analyst - Investigation tools */}
-                  <Route element={<ProtectedRoute roles={['fraud_analyst']} />}>
+                  {/* Fraud Alert Review — Analysts and Branch Managers */}
+                  <Route element={<ProtectedRoute roles={['fraud_analyst', 'branch_manager']} />}>
                     <Route path="fraud/alerts"        element={<FraudAlerts />} />
                     <Route path="fraud/alerts/:id"    element={<AlertDetail />} />
+                  </Route>
+
+                  {/* Fraud Analyst — Deep investigation and ML workbench */}
+                  <Route element={<ProtectedRoute roles={['fraud_analyst']} />}>
                     <Route path="fraud/investigations" element={<Investigations />} />
                     <Route path="fraud/ml-predictions" element={<FraudAlerts />} />
                   </Route>
