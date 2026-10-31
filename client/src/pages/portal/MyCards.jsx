@@ -12,7 +12,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  CreditCard, RefreshCw, ShieldAlert,
+  CreditCard, RefreshCw, ShieldAlert, ShieldCheck,
   Lock, AlertTriangle, CheckCircle2, Plus, Trash2, Globe
 } from 'lucide-react';
 import toast from 'react-hot-toast';

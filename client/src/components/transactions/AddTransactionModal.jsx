@@ -8,7 +8,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import {
-  PlusCircle, RefreshCw, AlertTriangle, ShieldCheck,
+  Plus, PlusCircle, RefreshCw, AlertTriangle, ShieldCheck,
   Building2, CreditCard, ShoppingBag, Globe, MapPin,
   CheckCircle2, XCircle, ShieldAlert, ArrowRight, Sparkles
 } from 'lucide-react';
