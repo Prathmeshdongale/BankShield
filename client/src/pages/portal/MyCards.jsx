@@ -84,13 +84,16 @@ const MyCards = () => {
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState('');
 
-  // Issue card modal state
+  // Link card modal state
   const [isIssuingModal, setIsIssuingModal] = useState(false);
   const [submittingIssue, setSubmittingIssue] = useState(false);
   const [issueForm, setIssueForm] = useState({
     accountId: '',
     cardType: 'debit',
     network: 'rupay',
+    lastFour: '',
+    expiryMonth: '12',
+    expiryYear: '2029',
   });
 
   // Confirm modal state
@@ -147,11 +150,11 @@ const MyCards = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── handle issue new card ──────────────────────────────────────────────────
+  // ── handle link existing card ──────────────────────────────────────────────
   const handleIssueCard = async (e) => {
     e.preventDefault();
     if (!issueForm.accountId) {
-      toast.error('Please select an active account for card issuance.');
+      toast.error('Please select an active account for card linking.');
       return;
     }
     setSubmittingIssue(true);
@@ -159,12 +162,15 @@ const MyCards = () => {
       await cardService.issue(issueForm.accountId, {
         cardType: issueForm.cardType,
         network: issueForm.network,
+        lastFour: issueForm.lastFour?.trim() || undefined,
+        expiryMonth: issueForm.expiryMonth ? parseInt(issueForm.expiryMonth, 10) : undefined,
+        expiryYear: issueForm.expiryYear ? parseInt(issueForm.expiryYear, 10) : undefined,
       });
-      toast.success('New card issued successfully!');
+      toast.success('Card linked and verified for fraud monitoring!');
       setIsIssuingModal(false);
       await load();
     } catch (err) {
-      toast.error(err?.response?.data?.error ?? 'Failed to issue card.');
+      toast.error(err?.response?.data?.error ?? 'Failed to link card.');
     } finally {
       setSubmittingIssue(false);
     }
@@ -271,7 +277,7 @@ const MyCards = () => {
             className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
             size="sm"
           >
-            <Plus className="h-4 w-4" /> Issue New Card
+            <Plus className="h-4 w-4" /> Link Existing Card
           </Button>
           <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-1.5">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -427,27 +433,27 @@ const MyCards = () => {
         </div>
       )}
 
-      {/* ── Modal: Issue New Card ─────────────────────────────────────────── */}
+      {/* ── Modal: Link Existing Card for Fraud Intelligence ──────────────── */}
       <Modal
         open={isIssuingModal}
         onClose={() => !submittingIssue && setIsIssuingModal(false)}
-        title="Issue a New Card"
+        title="Link Existing Card for Fraud Protection"
         size="md"
       >
         <form onSubmit={handleIssueCard} className="space-y-4">
-          <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-3 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
-            <p className="font-semibold flex items-center gap-1.5 mb-1">
-              <CreditCard className="h-4 w-4 text-blue-600" />
-              Instant Card Generation
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-3 text-xs text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+            <p className="font-semibold flex items-center gap-1.5 mb-1 text-emerald-800 dark:text-emerald-300">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              AI Fraud Shield Card Linkage
             </p>
             <p className="text-[11px] leading-relaxed">
-              Issue a physical or virtual debit/credit card linked directly to your active accounts with 256-bit PAN encryption.
+              Link your existing bank-issued card to BankShield's continuous ML monitoring engine to protect against unauthorized swipes, foreign transaction velocity spikes, and high-risk merchant fraud.
             </p>
           </div>
 
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-              Select Linked Account
+              Select Linked Bank Account
             </label>
             <Select
               value={issueForm.accountId}
@@ -456,7 +462,7 @@ const MyCards = () => {
             >
               {accounts.filter(a => a.status === 'active').map(a => (
                 <option key={a.id} value={a.id}>
-                  {a.account_number} — {a.account_type?.toUpperCase()} (Balance: ₹{parseFloat(a.balance ?? 0).toLocaleString('en-IN')})
+                  {a.bank_name ? `${a.bank_name} — ` : ''}{a.account_number} ({a.account_type?.toUpperCase()} • ₹{parseFloat(a.balance ?? 0).toLocaleString('en-IN')})
                 </option>
               ))}
             </Select>
@@ -496,18 +502,63 @@ const MyCards = () => {
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-              Card Network
-            </label>
-            <Select
-              value={issueForm.network}
-              onChange={(e) => setIssueForm(f => ({ ...f, network: e.target.value }))}
-            >
-              {NETWORK_OPTIONS.map(n => (
-                <option key={n.value} value={n.value}>{n.label}</option>
-              ))}
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                Card Network
+              </label>
+              <Select
+                value={issueForm.network}
+                onChange={(e) => setIssueForm(f => ({ ...f, network: e.target.value }))}
+              >
+                {NETWORK_OPTIONS.map(n => (
+                  <option key={n.value} value={n.value}>{n.label}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                Last 4 Digits of Card
+              </label>
+              <input
+                type="text"
+                maxLength={4}
+                pattern="\d{4}"
+                placeholder="e.g. 4892"
+                value={issueForm.lastFour}
+                onChange={(e) => setIssueForm(f => ({ ...f, lastFour: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                Expiry Month
+              </label>
+              <Select
+                value={issueForm.expiryMonth}
+                onChange={(e) => setIssueForm(f => ({ ...f, expiryMonth: e.target.value }))}
+              >
+                {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                Expiry Year
+              </label>
+              <Select
+                value={issueForm.expiryYear}
+                onChange={(e) => setIssueForm(f => ({ ...f, expiryYear: e.target.value }))}
+              >
+                {Array.from({ length: 11 }, (_, i) => String(new Date().getFullYear() + i)).map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </Select>
+            </div>
           </div>
 
           <div className="mt-5 flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
@@ -522,10 +573,19 @@ const MyCards = () => {
             <Button
               type="submit"
               disabled={submittingIssue || !issueForm.accountId}
-              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {submittingIssue && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-              {submittingIssue ? 'Issuing Card…' : 'Issue Card Now'}
+              {submittingIssue ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  Linking Card…
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Link Card for Fraud Analysis
+                </>
+              )}
             </Button>
           </div>
         </form>

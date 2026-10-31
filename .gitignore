@@ -38,3 +38,7 @@ Thumbs.db
 # ML models
 ml-service/models/*.pkl
 ml-service/models/*.joblib
+
+# Uploads and generated reports
+server/uploads/
+uploads/

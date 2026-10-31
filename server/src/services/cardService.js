@@ -59,7 +59,10 @@ const UNBLOCKABLE        = new Set(['blocked']);
 // 1. ISSUE CARD
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const issueCardService = async ({ accountId, cardType = 'debit', network = 'rupay' }, meta = {}) => {
+export const issueCardService = async ({
+  accountId, cardType = 'debit', network = 'rupay',
+  customPan = null, lastFour = null, expiryMonth = null, expiryYear = null,
+}, meta = {}) => {
   const account = await findAccountById(accountId);
   if (!account) throw mkErr('ACCOUNT_NOT_FOUND', 404);
   if (account.status !== 'active') throw mkErr('ACCOUNT_NOT_ACTIVE', 409);
@@ -67,21 +70,24 @@ export const issueCardService = async ({ accountId, cardType = 'debit', network 
   if (!VALID_CARD_TYPES.includes(cardType)) throw mkErr('INVALID_CARD_TYPE', 400);
   if (!VALID_NETWORKS.includes(network))   throw mkErr('INVALID_NETWORK', 400);
 
-  // Business rule: max 2 active cards per account per card_type
+  // Business rule: max 4 active cards per account
   const existing = await listCardsByAccount(accountId, false);
   const sameType = existing.filter(c => c.card_type === cardType);
-  if (sameType.length >= 2) throw mkErr('MAX_CARDS_REACHED', 409);
+  if (sameType.length >= 4) throw mkErr('MAX_CARDS_REACHED', 409);
 
-  const card = await dbIssueCard({ accountId, customerId: account.customer_id, cardType, network });
+  const card = await dbIssueCard({
+    accountId, customerId: account.customer_id, cardType, network,
+    customPan, lastFour, expiryMonth, expiryYear,
+  });
 
   await insertAuditLog({
-    userId: meta.actorId, action: 'CARD_ISSUED',
+    userId: meta.actorId, action: 'CARD_LINKED',
     entityType: 'card', entityId: card.id,
     newValue: { accountId, cardType, network, last4: card.card_last4, expiryYear: card.expiry_year },
     ipAddress: meta.ipAddress, userAgent: meta.userAgent, status: 'success',
   });
 
-  logger.info(`Card issued: ****${card.card_last4} (${cardType}) on account ${account.account_number}`);
+  logger.info(`Card linked: ****${card.card_last4} (${cardType}) on account ${account.account_number}`);
   return card;
 };
 

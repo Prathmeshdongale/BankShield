@@ -36,10 +36,20 @@ export const reportService = {
  * @param {string} filename  suggested filename
  */
 export function triggerDownload(response, filename) {
-  const url = window.URL.createObjectURL(new Blob([response.data]));
-  const a   = document.createElement('a');
+  let finalName = filename;
+  const disposition = response?.headers?.['content-disposition'];
+  if (disposition) {
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    if (match?.[1]) finalName = match[1];
+  }
+  if (!finalName) finalName = 'report.pdf';
+
+  const contentType = response?.headers?.['content-type'] || 'application/octet-stream';
+  const blob = new Blob([response.data], { type: contentType });
+  const url  = window.URL.createObjectURL(blob);
+  const a    = document.createElement('a');
   a.href     = url;
-  a.download = filename;
+  a.download = finalName;
   document.body.appendChild(a);
   a.click();
   a.remove();

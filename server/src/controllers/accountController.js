@@ -79,17 +79,20 @@ export const listAccountTypes = async (_req, res) => {
 // POST /api/accounts
 export const openAccount = async (req, res) => {
   try {
-    let { customerId, accountType, branchId, currency, nomineeName, jointHolderId } = req.body;
+    let {
+      customerId, accountType, branchId, currency, nomineeName, jointHolderId,
+      accountNumber, bankName, ifscCode, initialBalance,
+    } = req.body;
     if (!customerId && req.user?.role === 'customer') {
       const cust = await findCustomerByUserId(req.user.id);
       if (!cust) return failure(res, 'Customer profile not found for current user.', 404);
       customerId = cust.id;
     }
     const account = await openAccountService(
-      { customerId, accountType, branchId, currency, nomineeName, jointHolderId },
+      { customerId, accountType, branchId, currency, nomineeName, jointHolderId, accountNumber, bankName, ifscCode, initialBalance },
       getMeta(req)
     );
-    return success(res, { account }, 'Account opened successfully.', 201);
+    return success(res, { account }, 'Bank account linked successfully.', 201);
   } catch (err) { return handleErr(err, res); }
 };
 

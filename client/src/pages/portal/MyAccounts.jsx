@@ -60,19 +60,35 @@ const CURRENCIES = [
   { value: 'GBP', label: 'GBP (£) - British Pound' },
 ];
 
+const POPULAR_BANKS = [
+  { code: 'SBI', name: 'State Bank of India (SBI)', ifsc: 'SBIN0001234' },
+  { code: 'HDFC', name: 'HDFC Bank', ifsc: 'HDFC0000240' },
+  { code: 'ICICI', name: 'ICICI Bank', ifsc: 'ICIC0001000' },
+  { code: 'AXIS', name: 'Axis Bank', ifsc: 'UTIB0000005' },
+  { code: 'PNB', name: 'Punjab National Bank (PNB)', ifsc: 'PUNB0001000' },
+  { code: 'BOB', name: 'Bank of Baroda', ifsc: 'BARB0000001' },
+  { code: 'KOTAK', name: 'Kotak Mahindra Bank', ifsc: 'KKBK0000001' },
+  { code: 'BANKSHIELD', name: 'BankShield Core Banking', ifsc: 'BKSH0000001' },
+  { code: 'OTHER', name: 'Other Commercial Bank', ifsc: '' },
+];
+
 const MyAccounts = () => {
   const [accounts, setAccounts] = useState([]);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
   const [status,   setStatus]   = useState('');
 
-  // Open account modal state
+  // Link / Open account modal state
   const [isOpeningModal, setIsOpeningModal] = useState(false);
   const [submittingOpen, setSubmittingOpen] = useState(false);
   const [openForm, setOpenForm] = useState({
+    bankName: 'State Bank of India (SBI)',
+    accountNumber: '',
+    ifscCode: 'SBIN0001234',
     accountType: 'savings',
     currency: 'INR',
     nomineeName: '',
+    initialBalance: '25000',
   });
 
   // Close account modal state
@@ -97,22 +113,48 @@ const MyAccounts = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  // Handle open account
+  // Handle bank dropdown change
+  const handleBankChange = (bankName) => {
+    const found = POPULAR_BANKS.find(b => b.name === bankName);
+    setOpenForm(f => ({
+      ...f,
+      bankName,
+      ifscCode: found?.ifsc ?? f.ifscCode,
+    }));
+  };
+
+  // Handle link account
   const handleOpenAccount = async (e) => {
     e.preventDefault();
+    if (!openForm.accountNumber?.trim()) {
+      toast.error('Please enter your existing bank account number.');
+      return;
+    }
     setSubmittingOpen(true);
     try {
       await accountService.open({
+        accountNumber: openForm.accountNumber.trim(),
+        bankName: openForm.bankName,
+        ifscCode: openForm.ifscCode?.trim(),
         accountType: openForm.accountType,
         currency: openForm.currency,
         nomineeName: openForm.nomineeName?.trim() || undefined,
+        initialBalance: openForm.initialBalance ? parseFloat(openForm.initialBalance) : 0,
       });
-      toast.success('New account opened successfully!');
+      toast.success('Bank account linked and verified for fraud monitoring!');
       setIsOpeningModal(false);
-      setOpenForm({ accountType: 'savings', currency: 'INR', nomineeName: '' });
+      setOpenForm({
+        bankName: 'State Bank of India (SBI)',
+        accountNumber: '',
+        ifscCode: 'SBIN0001234',
+        accountType: 'savings',
+        currency: 'INR',
+        nomineeName: '',
+        initialBalance: '25000',
+      });
       await load();
     } catch (err) {
-      toast.error(err?.response?.data?.error ?? 'Failed to open account.');
+      toast.error(err?.response?.data?.error ?? 'Failed to link account.');
     } finally {
       setSubmittingOpen(false);
     }
@@ -166,7 +208,7 @@ const MyAccounts = () => {
             className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
             size="sm"
           >
-            <Plus className="h-4 w-4" /> Open New Account
+            <Plus className="h-4 w-4" /> Add Bank Account (UPI / Bank)
           </Button>
           <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-1.5">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -291,33 +333,73 @@ const MyAccounts = () => {
         </div>
       )}
 
-      {/* ── Modal: Open New Account ───────────────────────────────────────── */}
+      {/* ── Modal: Link Existing Bank Account ─────────────────────────────────── */}
       <Modal
         open={isOpeningModal}
         onClose={() => !submittingOpen && setIsOpeningModal(false)}
-        title="Open a New Bank Account"
+        title="Link Existing Bank Account (UPI / Core Banking)"
         size="md"
       >
         <form onSubmit={handleOpenAccount} className="space-y-4">
           <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-3 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
             <p className="font-semibold flex items-center gap-1.5 mb-1">
               <Shield className="h-4 w-4 text-blue-600" />
-              Instant Account Creation
+              Link Existing Bank Account (UPI Integration)
             </p>
             <p className="text-[11px] leading-relaxed">
-              Select your preferred account type and currency. Your new account number will be generated immediately and linked to your security profile.
+              Just like UPI (Google Pay, PhonePe), link your existing bank account by entering your account details below. BankShield connects to your account to provide 24/7 real-time AI transaction monitoring and instant fraud intelligence.
             </p>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
-              Account Type
+            <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+              Select Your Bank *
             </label>
-            <div className="space-y-2">
+            <Select
+              value={openForm.bankName}
+              onChange={(e) => handleBankChange(e.target.value)}
+              required
+            >
+              {POPULAR_BANKS.map(b => (
+                <option key={b.code} value={b.name}>{b.name}</option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                Existing Account Number *
+              </label>
+              <Input
+                placeholder="e.g. 5010049281726"
+                value={openForm.accountNumber}
+                onChange={(e) => setOpenForm(f => ({ ...f, accountNumber: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                IFSC Code *
+              </label>
+              <Input
+                placeholder="e.g. SBIN0001234"
+                value={openForm.ifscCode}
+                onChange={(e) => setOpenForm(f => ({ ...f, ifscCode: e.target.value.toUpperCase() }))}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
+              Account Type *
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {OPENABLE_ACCOUNT_TYPES.map(t => (
                 <label
                   key={t.value}
-                  className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition ${
+                  className={`flex items-start gap-2.5 rounded-lg border p-2.5 cursor-pointer transition ${
                     openForm.accountType === t.value
                       ? 'border-blue-500 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-950/30'
                       : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
@@ -333,30 +415,31 @@ const MyAccounts = () => {
                   />
                   <div>
                     <p className="text-xs font-semibold text-gray-900 dark:text-white">{t.label}</p>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{t.desc}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{t.desc}</p>
                   </div>
                 </label>
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-                Currency
+                Verified Account Balance (INR ₹)
               </label>
-              <Select
-                value={openForm.currency}
-                onChange={(e) => setOpenForm(f => ({ ...f, currency: e.target.value }))}
-              >
-                {CURRENCIES.map(c => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </Select>
+              <Input
+                type="number"
+                min="0"
+                step="100"
+                placeholder="e.g. 25000"
+                value={openForm.initialBalance}
+                onChange={(e) => setOpenForm(f => ({ ...f, initialBalance: e.target.value }))}
+              />
+              <p className="text-[10px] text-gray-400 mt-0.5">Opening balance for fraud simulation</p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-                Nominee Name (Optional)
+                Nominee / Beneficiary Name (Optional)
               </label>
               <Input
                 placeholder="e.g. Jane Doe"
@@ -364,6 +447,7 @@ const MyAccounts = () => {
                 onChange={(e) => setOpenForm(f => ({ ...f, nomineeName: e.target.value }))}
                 maxLength={100}
               />
+              <p className="text-[10px] text-gray-400 mt-0.5">Registered account nominee</p>
             </div>
           </div>
 
@@ -382,7 +466,7 @@ const MyAccounts = () => {
               className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
             >
               {submittingOpen && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-              {submittingOpen ? 'Creating Account…' : 'Open Account Now'}
+              {submittingOpen ? 'Linking Account…' : 'Link Account for Protection'}
             </Button>
           </div>
         </form>

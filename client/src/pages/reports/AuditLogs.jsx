@@ -23,6 +23,7 @@ import { z }           from 'zod';
 import {
   ClipboardList, Download, Plus, RefreshCw,
   CheckCircle2, Clock, XCircle, Info,
+  ChevronDown, FileText, Table, FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { reportService, triggerDownload } from '@/services/reportService';
@@ -59,6 +60,12 @@ const StatusIcon = ({ status }) => {
   return                              <Clock        className="h-3.5 w-3.5 text-gray-400" />;
 };
 
+const EXT_MAP = {
+  pdf: '.pdf',
+  excel: '.xlsx',
+  csv: '.csv',
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 const AuditLogs = () => {
   const { hasAnyPermission } = useAuth();
@@ -74,8 +81,9 @@ const AuditLogs = () => {
   const [page,       setPage]       = useState(1);
   const [showModal,  setShowModal]  = useState(false);
   const [downloading,setDownloading]= useState('');
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } =
     useForm({ resolver: zodResolver(exportSchema), defaultValues: { format: 'pdf' } });
 
   // ── load audit reports ─────────────────────────────────────────────────────
@@ -107,9 +115,20 @@ const AuditLogs = () => {
       if (dateFrom) parameters.dateFrom = dateFrom;
       if (dateTo)   parameters.dateTo   = dateTo;
       await reportService.request('audit_report', format, parameters);
-      toast.success('Audit report queued. It will appear below when ready.');
+      toast.success(`Audit report (${format.toUpperCase()}) queued. It will appear below when ready.`);
       setShowModal(false);
       reset();
+      load(1);
+    } catch (e) {
+      toast.error(e?.response?.data?.error ?? 'Failed to queue audit export.');
+    }
+  };
+
+  const handleQuickExport = async (format) => {
+    setExportDropdownOpen(false);
+    try {
+      await reportService.request('audit_report', format, {});
+      toast.success(`Audit report (${format.toUpperCase()}) queued for generation.`);
       load(1);
     } catch (e) {
       toast.error(e?.response?.data?.error ?? 'Failed to queue audit export.');
@@ -122,10 +141,10 @@ const AuditLogs = () => {
     setDownloading(report.id);
     try {
       const response = await reportService.download(report.id);
-      const ext  = report.format ? `.${report.format}` : '';
+      const ext  = EXT_MAP[report.format] || (report.format ? `.${report.format}` : '.pdf');
       const name = `audit_report_${report.id.slice(0, 8)}${ext}`;
       triggerDownload(response, name);
-      toast.success('Download started.');
+      toast.success(`Downloaded ${name}`);
     } catch (e) {
       toast.error(e?.response?.data?.error ?? 'Download failed.');
     } finally {
@@ -155,11 +174,81 @@ const AuditLogs = () => {
             System audit trail — request and download audit reports.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center relative">
           {canCreate && (
-            <Button size="sm" className="gap-1.5" onClick={() => setShowModal(true)}>
-              <Plus className="h-4 w-4" /> Export Audit Report
-            </Button>
+            <div className="relative">
+              <Button
+                size="sm"
+                className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                onClick={() => setExportDropdownOpen(prev => !prev)}
+              >
+                <Plus className="h-4 w-4" /> Export Audit Report <ChevronDown className="h-3.5 w-3.5 ml-0.5 opacity-80" />
+              </Button>
+
+              {/* Format Dropdown Menu */}
+              {exportDropdownOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-800 dark:bg-gray-900 z-50 animate-fade-in"
+                  onMouseLeave={() => setExportDropdownOpen(false)}
+                >
+                  <div className="px-2.5 py-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Select Export Format
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickExport('pdf')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-700 dark:text-gray-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 transition"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">Export as PDF (.pdf)</p>
+                      <p className="text-[10px] text-gray-400">Formal, formatted compliance & executive report</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickExport('csv')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 dark:text-gray-200 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 transition"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
+                      <Table className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">Export as CSV (.csv)</p>
+                      <p className="text-[10px] text-gray-400">Forensics, Excel spreadsheet & SIEM data</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickExport('excel')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 dark:text-gray-200 dark:hover:bg-blue-950/40 dark:hover:text-blue-300 transition"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+                      <FileSpreadsheet className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">Export as Excel (.xlsx)</p>
+                      <p className="text-[10px] text-gray-400">Multi-sheet styled workbook with auto-filters</p>
+                    </div>
+                  </button>
+
+                  <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+
+                  <button
+                    type="button"
+                    onClick={() => { setExportDropdownOpen(false); setShowModal(true); }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-gray-400" /> Custom Date Filter & Export…
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <Button variant="outline" size="sm" onClick={() => load(page)} disabled={loading} className="gap-1.5">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -171,10 +260,7 @@ const AuditLogs = () => {
       <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm dark:border-indigo-800 dark:bg-indigo-950/30">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
         <div className="text-indigo-800 dark:text-indigo-300">
-          <strong>Audit exports are generated asynchronously.</strong> Request a report below — it will
-          appear in the list with a <em>queued</em> or <em>generating</em> status and become
-          downloadable once ready. Audit events captured include: logins, password changes,
-          account mutations, KYC updates, fraud actions, and role changes.
+          <strong>Audit exports are generated asynchronously.</strong> Choose between <strong>PDF</strong> (executive compliance summary) or <strong>CSV</strong> (forensics spreadsheet) from the export menu above. Audit events captured include: logins, OTP verifications, password changes, account mutations, KYC updates, fraud actions, and role permissions.
         </div>
       </div>
 
@@ -228,8 +314,20 @@ const AuditLogs = () => {
                         <p className="font-mono text-[11px] text-gray-400">{r.id?.slice(0, 8)}…</p>
                         <p className="text-[10px] text-gray-400">{fmtDate(r.created_at)}</p>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs uppercase text-gray-600 dark:text-gray-400">
-                        {r.format ?? '—'}
+                      <td className="px-4 py-3">
+                        {r.format === 'pdf' ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            <FileText className="h-3 w-3" /> PDF
+                          </span>
+                        ) : r.format === 'csv' ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            <Table className="h-3 w-3" /> CSV
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            <FileSpreadsheet className="h-3 w-3" /> EXCEL
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5">
@@ -252,14 +350,20 @@ const AuditLogs = () => {
                         {canExport && r.status === 'ready' && (
                           <Button
                             size="sm" variant="outline"
-                            className="h-7 gap-1 text-xs"
+                            className="h-7 gap-1.5 text-xs font-medium"
                             disabled={downloading === r.id}
                             onClick={() => download(r)}
                           >
-                            {downloading === r.id
-                              ? <RefreshCw className="h-3 w-3 animate-spin" />
-                              : <Download className="h-3 w-3" />}
-                            Download
+                            {downloading === r.id ? (
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                            ) : r.format === 'pdf' ? (
+                              <FileText className="h-3.5 w-3.5 text-rose-500" />
+                            ) : r.format === 'csv' ? (
+                              <Table className="h-3.5 w-3.5 text-emerald-500" />
+                            ) : (
+                              <FileSpreadsheet className="h-3.5 w-3.5 text-blue-500" />
+                            )}
+                            Download {r.format?.toUpperCase()}
                           </Button>
                         )}
                         {r.status === 'queued' || r.status === 'generating' ? (

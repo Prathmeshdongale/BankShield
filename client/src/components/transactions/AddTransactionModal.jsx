@@ -44,10 +44,12 @@ export const AddTransactionModal = ({ open, onClose, onSuccess }) => {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [cards, setCards] = useState([]);
+  const [cardId, setCardId] = useState('');
 
   // Form State
   const [accountId, setAccountId] = useState('');
-  const [channel, setChannel] = useState('web'); // 'web' | 'pos' | 'upi' | 'atm' | 'deposit'
+  const [channel, setChannel] = useState('web'); // 'web' | 'card' | 'pos' | 'upi' | 'atm' | 'deposit'
   const [amount, setAmount] = useState('2500');
   const [merchantName, setMerchantName] = useState('Amazon India');
   const [merchantCategory, setMerchantCategory] = useState('retail');
@@ -86,12 +88,31 @@ export const AddTransactionModal = ({ open, onClose, onSuccess }) => {
     fetchAccounts();
   }, [open]);
 
+  // Fetch cards whenever accountId changes
+  useEffect(() => {
+    if (!accountId) { setCards([]); setCardId(''); return; }
+    accountService.listCards(accountId, { includeInactive: false })
+      .then(res => {
+        const list = res.data?.cards ?? [];
+        setCards(list);
+        if (list.length > 0) setCardId(list[0].id);
+        else setCardId('');
+      })
+      .catch(() => setCards([]));
+  }, [accountId]);
+
   const handleSelectPresetMerchant = (preset) => {
     setMerchantName(preset.name);
     setMerchantCategory(preset.cat);
     setCity(preset.city);
     setCountry(preset.country);
     setDescription(`Payment to ${preset.name}`);
+  };
+
+  const handleSelectOtherMerchant = () => {
+    setMerchantName('');
+    setMerchantCategory('other');
+    setDescription('Custom merchant transaction');
   };
 
   const handleSubmit = async (e) => {
@@ -111,11 +132,6 @@ export const AddTransactionModal = ({ open, onClose, onSuccess }) => {
 
     try {
       let res;
-      const headers = {
-        'x-location-city': city || 'Mumbai',
-        'x-location-country': country || 'IN',
-      };
-
       if (channel === 'deposit') {
         res = await transactionService.deposit({
           accountId,
@@ -124,24 +140,34 @@ export const AddTransactionModal = ({ open, onClose, onSuccess }) => {
           channel: 'branch',
           description: description || 'Cash deposit into account',
         });
+      } else if (channel === 'atm') {
+        res = await transactionService.withdraw({
+          accountId,
+          amount: numAmt,
+          currency: 'INR',
+          channel: 'atm',
+          description: description || 'ATM cash withdrawal',
+        });
       } else if (channel === 'upi') {
+        const vpaHandle = merchantName ? merchantName.toLowerCase().replace(/[^a-z0-9]/g, '') : 'payee';
         res = await transactionService.upiPayment({
           sourceAccountId: accountId,
           amount: numAmt,
           currency: 'INR',
-          upiVpa: `${merchantName.toLowerCase().replace(/\s+/g, '')}@bank`,
-          description: description || `UPI payment to ${merchantName}`,
+          upiVpa: `${vpaHandle}@bank`,
+          description: description || `UPI payment to ${merchantName || 'Merchant'}`,
         });
       } else {
-        // 'web' or 'pos' online payment
+        // 'web', 'card', or 'pos'
         res = await transactionService.onlinePayment({
           accountId,
+          cardId: cardId || undefined,
           amount: numAmt,
           currency: 'INR',
           channel: channel === 'pos' ? 'mobile' : 'web',
-          merchantName,
-          merchantCategory,
-          description: description || `Payment to ${merchantName}`,
+          merchantName: merchantName || 'Custom Merchant',
+          merchantCategory: merchantCategory || 'other',
+          description: description || `Payment to ${merchantName || 'Merchant'}`,
         });
       }
 
@@ -302,9 +328,11 @@ export const AddTransactionModal = ({ open, onClose, onSuccess }) => {
                 </label>
                 <Select value={channel} onChange={(e) => setChannel(e.target.value)}>
                   <option value="web">Online Web E-Commerce</option>
-                  <option value="pos">In-Store POS Terminal</option>
+                  <option value="card">Linked Debit / Credit Card</option>
+                  <option value="pos">In-Store POS Terminal (Swipe/Tap)</option>
                   <option value="upi">UPI Instant Transfer</option>
-                  <option value="deposit">Deposit Funds (Credit)</option>
+                  <option value="atm">ATM Cash Withdrawal</option>
+                  <option value="deposit">Deposit Funds (Credit Balance)</option>
                 </Select>
               </div>
 
@@ -323,6 +351,28 @@ export const AddTransactionModal = ({ open, onClose, onSuccess }) => {
                 />
               </div>
             </div>
+
+            {/* Linked Card Selector (for card & pos channels) */}
+            {(channel === 'card' || channel === 'pos') && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  Select Linked Card (Optional)
+                </label>
+                {cards.length === 0 ? (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-[11px] text-gray-500 dark:border-gray-800 dark:bg-gray-900">
+                    No active cards found for this account. Will process as account card payment.
+                  </div>
+                ) : (
+                  <Select value={cardId} onChange={(e) => setCardId(e.target.value)}>
+                    {cards.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.card_network?.toUpperCase()} {c.card_type?.toUpperCase()} — •••• {c.last_four || c.card_number?.slice(-4)} (Exp: {c.expiry_month}/{c.expiry_year})
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+            )}
 
             {/* Quick Amount Chips */}
             <div>
@@ -346,7 +396,7 @@ export const AddTransactionModal = ({ open, onClose, onSuccess }) => {
             </div>
 
             {/* Merchant Presets (for payment channels) */}
-            {channel !== 'deposit' && (
+            {channel !== 'deposit' && channel !== 'atm' && (
               <div>
                 <p className="text-[11px] text-gray-500 mb-1.5 font-medium">Test Merchant Scenarios:</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -365,36 +415,56 @@ export const AddTransactionModal = ({ open, onClose, onSuccess }) => {
                       <p className="text-[10px] text-gray-400 capitalize">{pm.cat} · {pm.city}, {pm.country}</p>
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={handleSelectOtherMerchant}
+                    className={`text-left rounded-lg border p-2 text-xs transition border-dashed ${
+                      merchantCategory === 'other' || !PRESET_MERCHANTS.some(pm => pm.name === merchantName)
+                        ? 'border-blue-500 bg-blue-50/60 dark:border-blue-500 dark:bg-blue-950/30'
+                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-700'
+                    }`}
+                  >
+                    <p className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                      <Plus className="h-3.5 w-3.5" /> Other Merchant
+                    </p>
+                    <p className="text-[10px] text-gray-400">Custom / Enter your own</p>
+                  </button>
                 </div>
               </div>
             )}
 
             {/* Merchant Details & Location */}
-            {channel !== 'deposit' && (
+            {channel !== 'deposit' && channel !== 'atm' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Merchant Name
+                    Merchant Name *
                   </label>
                   <Input
                     value={merchantName}
                     onChange={(e) => setMerchantName(e.target.value)}
-                    placeholder="e.g. Amazon"
+                    placeholder="e.g. Swiggy, Netflix, Local Store"
                     required
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Category
+                    Category *
                   </label>
                   <Select value={merchantCategory} onChange={(e) => setMerchantCategory(e.target.value)}>
+                    <option value="other">Other / Custom Services</option>
                     <option value="retail">Retail & Shopping</option>
+                    <option value="groceries">Groceries & Supermarket</option>
                     <option value="food_dining">Food & Dining</option>
                     <option value="electronics">Electronics & Gadgets</option>
                     <option value="travel">Travel & Airlines</option>
+                    <option value="entertainment">Entertainment & Streaming</option>
+                    <option value="utilities">Bills & Utilities</option>
                     <option value="luxury_goods">Luxury Goods & Jewelry</option>
                     <option value="crypto">Cryptocurrency Exchange</option>
                     <option value="gambling">Online Gambling & Casino</option>
+                    <option value="healthcare">Healthcare & Pharmacy</option>
+                    <option value="education">Education & Fees</option>
                   </Select>
                 </div>
               </div>

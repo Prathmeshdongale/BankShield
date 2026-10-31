@@ -130,6 +130,12 @@ const Reports = () => {
     }
   };
 
+  const EXT_MAP = {
+    pdf: '.pdf',
+    excel: '.xlsx',
+    csv: '.csv',
+  };
+
   // ── download ──────────────────────────────────────────────────────────────
   const download = async (report) => {
     if (report.status !== 'ready') {
@@ -139,10 +145,10 @@ const Reports = () => {
     setDownloading(report.id);
     try {
       const response = await reportService.download(report.id);
-      const ext = report.format ? `.${report.format}` : '';
+      const ext = EXT_MAP[report.format] || (report.format ? `.${report.format}` : '.pdf');
       const name = `${(report.title ?? 'report').replace(/[^a-z0-9_-]/gi, '_')}${ext}`;
       triggerDownload(response, name);
-      toast.success('Download started.');
+      toast.success(`Downloaded ${name}`);
     } catch (e) {
       toast.error(e?.response?.data?.error ?? 'Download failed.');
     } finally {

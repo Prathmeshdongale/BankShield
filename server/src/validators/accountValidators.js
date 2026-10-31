@@ -40,6 +40,22 @@ export const openAccountValidator = [
   body('jointHolderId')
     .optional({ nullable: true })
     .isUUID(4).withMessage('jointHolderId must be a valid UUID v4.'),
+
+  body('accountNumber')
+    .optional({ nullable: true }).trim()
+    .isLength({ min: 3, max: 50 }).withMessage('accountNumber must be between 3 and 50 characters.'),
+
+  body('bankName')
+    .optional({ nullable: true }).trim()
+    .isLength({ max: 100 }).withMessage('bankName must be ≤ 100 characters.'),
+
+  body('ifscCode')
+    .optional({ nullable: true }).trim()
+    .isLength({ max: 20 }).withMessage('ifscCode must be ≤ 20 characters.'),
+
+  body('initialBalance')
+    .optional({ nullable: true })
+    .isNumeric().withMessage('initialBalance must be a valid number.'),
 ];
 
 // ─── 2. UPDATE ACCOUNT ───────────────────────────────────────────────────────

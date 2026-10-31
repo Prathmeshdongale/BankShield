@@ -41,6 +41,7 @@ import {
   getAnalystPerformance,
   getCustomerActivity,
   getMonthlyRiskSummary,
+  getSystemAuditTrail,
 } from '../db/queries/reportQueries.js';
 import { renderPDF, renderExcel, renderCSV } from './reportRenderService.js';
 
@@ -76,6 +77,15 @@ const COLUMNS = {
     { header: 'False Positive',     key: 'false_positive_count', width: 1 },
   ],
   audit_report: [
+    { header: 'Timestamp',          key: 'created_at',   width: 2.5 },
+    { header: 'Action',             key: 'action',       width: 2   },
+    { header: 'Actor Email',        key: 'actor_email',  width: 2.5 },
+    { header: 'Role',               key: 'actor_role',   width: 1.5 },
+    { header: 'Entity Type',        key: 'entity_type',  width: 1.5 },
+    { header: 'IP Address',         key: 'ip_address',   width: 1.5 },
+    { header: 'Status',             key: 'status',       width: 1   },
+  ],
+  compliance_report: [
     { header: 'Analyst',            key: 'analyst_name',          width: 2 },
     { header: 'Email',              key: 'analyst_email',         width: 2.5},
     { header: 'Investigations',     key: 'investigations_total',  width: 1.5},
@@ -112,7 +122,6 @@ const COLUMNS = {
     { header: 'Confirmed Fraud',    key: 'confirmed_fraud_cases',   width: 1.5},
   ],
 };
-COLUMNS.compliance_report = COLUMNS.audit_report;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA FETCHER — maps report type to query
@@ -126,7 +135,7 @@ const fetchData = async (reportType, parameters) => {
   switch (reportType) {
     case 'transaction_summary': return getDailyTransactionSummary({ dateFrom: from, dateTo: to });
     case 'fraud_report':        return getFraudSummary({ dateFrom: from, dateTo: to });
-    case 'audit_report':
+    case 'audit_report':        return getSystemAuditTrail({ dateFrom: from, dateTo: to });
     case 'compliance_report':   return getAnalystPerformance({ dateFrom: from, dateTo: to });
     case 'customer_statement':  return getCustomerActivity({ dateFrom: from, dateTo: to, customerId });
     case 'risk_report':         return getMonthlyRiskSummary({ dateFrom: from, dateTo: to });
@@ -153,7 +162,12 @@ const buildSummary = (reportType, rows) => {
       const fp     = rows.reduce((s, r) => s + Number(r.false_positive_count ?? 0), 0);
       return { 'Total Alerts': alerts, 'Confirmed Fraud': conf, 'False Positives': fp };
     }
-    case 'audit_report':
+    case 'audit_report': {
+      const total = rows.length;
+      const successes = rows.filter(r => r.status === 'success').length;
+      const uniqueActors = new Set(rows.map(r => r.actor_email)).size;
+      return { 'Total Audit Events': total, 'Successful Operations': successes, 'Active Users': uniqueActors };
+    }
     case 'compliance_report': {
       const analysts = rows.length;
       const closed   = rows.reduce((s, r) => s + Number(r.investigations_closed ?? 0), 0);

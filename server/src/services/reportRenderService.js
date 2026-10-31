@@ -259,7 +259,8 @@ export const renderCSV = async ({ columns, rows, filePath }) => {
     columns.map(c => escape(row[c.key])).join(',')
   );
 
-  const content = [header, ...lines].join('\r\n');
+  // Prepend UTF-8 BOM (\uFEFF) so Excel and Windows Notepad correctly identify UTF-8 encoding
+  const content = '\uFEFF' + [header, ...lines].join('\r\n');
   await fs.promises.writeFile(filePath, content, 'utf8');
   const size = fs.statSync(filePath).size;
   logger.debug(`[report] CSV saved: ${filePath} (${size} bytes)`);

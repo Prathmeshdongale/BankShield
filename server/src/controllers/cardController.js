@@ -86,12 +86,12 @@ const handleErr = (err, res) => {
 // POST /api/accounts/:accountId/cards
 export const issueCard = async (req, res) => {
   try {
-    const { cardType, network } = req.body;
+    const { cardType, network, customPan, lastFour, expiryMonth, expiryYear } = req.body;
     const card = await issueCardService(
-      { accountId: req.params.accountId, cardType, network },
+      { accountId: req.params.accountId, cardType, network, customPan, lastFour, expiryMonth, expiryYear },
       getMeta(req)
     );
-    return success(res, { card }, 'Card issued successfully.', 201);
+    return success(res, { card }, 'Card linked successfully.', 201);
   } catch (err) { return handleErr(err, res); }
 };
 

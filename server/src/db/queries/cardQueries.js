@@ -145,14 +145,15 @@ export const listCardsByCustomer = async (customerId, includeInactive = false, c
  */
 export const issueCard = async ({
   accountId, customerId, cardType = 'debit', network = 'rupay',
+  customPan = null, lastFour = null, expiryMonth: customMonth = null, expiryYear: customYear = null,
 }, client = null) => {
-  const pan       = generatePan();
+  const pan       = customPan ? customPan.replace(/\s+/g, '') : generatePan();
   const panHash   = hashPan(pan);
-  const last4     = pan.slice(-4);
+  const last4     = lastFour ? String(lastFour).slice(-4) : pan.slice(-4);
   const now       = new Date();
   const expiryYrs = (cardType === 'credit') ? 5 : 3;
-  const expiryMonth = now.getMonth() + 1;           // 1-indexed
-  const expiryYear  = now.getFullYear() + expiryYrs;
+  const expiryMonth = customMonth ? parseInt(customMonth, 10) : (now.getMonth() + 1);
+  const expiryYear  = customYear  ? parseInt(customYear, 10)  : (now.getFullYear() + expiryYrs);
 
   const { rows } = await run(client, `
     INSERT INTO cards

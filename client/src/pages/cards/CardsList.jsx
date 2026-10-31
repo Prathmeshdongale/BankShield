@@ -55,7 +55,8 @@ const IssueCardForm = ({ onSubmit, onCancel }) => {
 const CardsList = ({ accountId }) => {
   const navigate    = useNavigate();
   const { hasRole } = useAuth();
-  const canIssue    = hasRole(['super_admin','admin','branch_manager','teller']);
+  const isSuperAdmin = hasRole(['super_admin']);
+  const canIssue    = hasRole(['branch_manager','teller']);
 
   const [cards,    setCards]    = useState([]);
   const [loading,  setLoading]  = useState(false);
@@ -78,7 +79,7 @@ const CardsList = ({ accountId }) => {
 
   const handleIssue = async (data) => {
     await accountService.issueCard(accountId, data);
-    toast.success('Card issued.');
+    toast.success('Card linked and verified.');
     setIssueOpen(false);
     load();
   };
@@ -93,11 +94,18 @@ const CardsList = ({ accountId }) => {
             Show inactive cards
           </label>
         </div>
-        {canIssue && (
-          <Button size="sm" onClick={() => setIssueOpen(true)} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> Issue Card
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isSuperAdmin && (
+            <Button size="sm" variant="outline" onClick={load} disabled={loading} className="gap-1.5 border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300">
+              <Eye className="h-3.5 w-3.5 text-emerald-600" /> Fetch & Analyze Cards
+            </Button>
+          )}
+          {canIssue && (
+            <Button size="sm" onClick={() => setIssueOpen(true)} className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Link / Issue Card
+            </Button>
+          )}
+        </div>
       </div>
 
       <ErrorMessage message={error} />
