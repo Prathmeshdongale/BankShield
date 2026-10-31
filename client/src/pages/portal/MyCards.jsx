@@ -24,6 +24,7 @@ import { InlineLoader } from '@/components/ui/LoadingOverlay';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import Modal from '@/components/ui/Modal';
 import Select from '@/components/ui/Select';
+import { SecurityOtpModal } from '@/components/security/SecurityOtpModal';
 
 // ── visual config ─────────────────────────────────────────────────────────────
 const CARD_ICON  = { debit: '🏧', credit: '💳', prepaid: '📋', virtual: '🌐' };
@@ -95,6 +96,10 @@ const MyCards = () => {
   // Confirm modal state
   const [confirm, setConfirm] = useState(null);
   const [acting,  setActing]  = useState('');
+
+  // Security OTP modal state for high-risk card actions (removal)
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpCard,      setOtpCard]      = useState(null);
 
   // ── load all cards across all accounts ─────────────────────────────────────
   const load = useCallback(async () => {
@@ -168,24 +173,47 @@ const MyCards = () => {
   // ── actions ─────────────────────────────────────────────────────────────────
   const runAction = async () => {
     if (!confirm) return;
-    const { cardId, action } = confirm;
+    const { cardId, action, maskedPan } = confirm;
+
+    if (action === 'remove') {
+      // Step-up security verification required for card deletion
+      setOtpCard({ cardId, maskedPan: maskedPan || '••••' });
+      setConfirm(null);
+      setShowOtpModal(true);
+      return;
+    }
+
     setActing(cardId);
     setConfirm(null);
     try {
       if (action === 'block')        await cardService.block(cardId, 'Blocked by cardholder via portal');
       if (action === 'reportLost')   await cardService.reportLost(cardId);
       if (action === 'reportStolen') await cardService.reportStolen(cardId);
-      if (action === 'remove')       await cardService.delete(cardId);
 
       toast.success(
         action === 'block'        ? 'Card blocked.'           :
         action === 'reportLost'   ? 'Card reported as lost.'  :
-        action === 'reportStolen' ? 'Card reported as stolen.':
-                                    'Card removed successfully.'
+                                    'Card reported as stolen.'
       );
       load();
     } catch (e) {
       toast.error(e?.response?.data?.error ?? 'Action failed.');
+    } finally {
+      setActing('');
+    }
+  };
+
+  const handleVerifiedRemove = async (verificationToken) => {
+    if (!otpCard) return;
+    setActing(otpCard.cardId);
+    try {
+      await cardService.delete(otpCard.cardId);
+      toast.success('Card removed successfully after security verification.');
+      setShowOtpModal(false);
+      setOtpCard(null);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.error ?? 'Failed to remove card.');
     } finally {
       setActing('');
     }
@@ -214,10 +242,10 @@ const MyCards = () => {
   });
 
   const promptRemove = (cardId, maskedPan) => setConfirm({
-    cardId, action: 'remove',
+    cardId, action: 'remove', maskedPan,
     title      : 'Remove Card',
-    description: `Are you sure you want to remove card ${maskedPan}? The card will be permanently deactivated and removed from your wallet.`,
-    label      : 'Remove Card',
+    description: `Are you sure you want to remove card ${maskedPan}? For security, a 6-digit one-time code will be dispatched to your registered email to authorize this deletion.`,
+    label      : 'Proceed to Security Verification',
   });
 
   // ── render ──────────────────────────────────────────────────────────────────
@@ -516,6 +544,20 @@ const MyCards = () => {
           variant={confirm.variant}
         />
       )}
+
+      {/* ── Security OTP Verification for Card Removal ────────────────────── */}
+      <SecurityOtpModal
+        open={showOtpModal}
+        onClose={() => {
+          setShowOtpModal(false);
+          setOtpCard(null);
+        }}
+        onVerified={handleVerifiedRemove}
+        purpose="card_removal"
+        title="Verify Card Deletion"
+        description={`To securely remove and deactivate card ${otpCard?.maskedPan || ''}, please enter the 6-digit one-time code sent to your registered email.`}
+        actionButtonText="Authorize Card Removal"
+      />
     </div>
   );
 };

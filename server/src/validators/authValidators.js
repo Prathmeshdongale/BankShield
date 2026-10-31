@@ -120,7 +120,7 @@ export const loginValidator = [
 
   body('password')
     .trim()
-    .notEmpty().withMessage('Password is required.'),
+    .optional({ nullable: true, checkFalsy: true }),
   // No complexity check on login — don't leak schema info
 ];
 

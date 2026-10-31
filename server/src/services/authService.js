@@ -293,7 +293,7 @@ export const loginUser = async ({ email, password }, meta = {}) => {
     };
   }
 
-  const passwordMatch = await bcrypt.compare(password, user.password_hash);
+  const passwordMatch = password ? await bcrypt.compare(password, user.password_hash) : false;
   if (!passwordMatch) {
     await logFail('WRONG_PASSWORD');
     const err = new Error('INVALID_CREDENTIALS');

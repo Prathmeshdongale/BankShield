@@ -27,6 +27,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { InlineLoader } from '@/components/ui/LoadingOverlay';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import Modal from '@/components/ui/Modal';
+import { SecurityOtpModal } from '@/components/security/SecurityOtpModal';
 
 const STATUSES = ['', 'active', 'dormant', 'frozen', 'closed', 'pending'];
 
@@ -77,6 +78,7 @@ const MyAccounts = () => {
   // Close account modal state
   const [accountToClose, setAccountToClose] = useState(null);
   const [closing,        setClosing]        = useState(false);
+  const [showCloseOtp,   setShowCloseOtp]   = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -116,13 +118,21 @@ const MyAccounts = () => {
     }
   };
 
-  // Handle close account
-  const handleConfirmClose = async () => {
+  // Handle close account with step-up OTP verification
+  const handleInitiateClose = () => {
+    setShowCloseOtp(true);
+  };
+
+  const handleVerifiedClose = async (verificationToken) => {
     if (!accountToClose) return;
     setClosing(true);
     try {
-      await accountService.close(accountToClose.id, { zeroBalance: true });
+      await accountService.close(accountToClose.id, {
+        zeroBalance: true,
+        verificationToken,
+      });
       toast.success(`Account ${accountToClose.account_number} closed successfully.`);
+      setShowCloseOtp(false);
       setAccountToClose(null);
       await load();
     } catch (err) {
@@ -381,7 +391,7 @@ const MyAccounts = () => {
       {/* ── Modal: Confirm Close Account ──────────────────────────────────── */}
       {accountToClose && (
         <Modal
-          open={Boolean(accountToClose)}
+          open={Boolean(accountToClose) && !showCloseOtp}
           onClose={() => !closing && setAccountToClose(null)}
           title="Close Account Confirmation"
           size="sm"
@@ -399,7 +409,7 @@ const MyAccounts = () => {
             </div>
 
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              Are you sure you want to close this <strong>{accountToClose.account_type?.replace(/_/g, ' ')}</strong>? You can open a new account anytime.
+              Are you sure you want to close this <strong>{accountToClose.account_type?.replace(/_/g, ' ')}</strong>? For security, a 6-digit one-time verification code will be sent to your email.
             </p>
 
             <div className="mt-5 flex justify-end gap-3 pt-2">
@@ -411,17 +421,31 @@ const MyAccounts = () => {
                 Keep Account
               </Button>
               <Button
-                onClick={handleConfirmClose}
+                onClick={handleInitiateClose}
                 disabled={closing}
                 className="gap-2 bg-rose-600 hover:bg-rose-700 text-white"
               >
                 {closing && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-                {closing ? 'Closing Account…' : 'Confirm & Close Account'}
+                {closing ? 'Processing…' : 'Proceed to Security Verification'}
               </Button>
             </div>
           </div>
         </Modal>
       )}
+
+      {/* ── Security OTP Verification for Account Closure ─────────────────── */}
+      <SecurityOtpModal
+        open={showCloseOtp}
+        onClose={() => {
+          setShowCloseOtp(false);
+          setAccountToClose(null);
+        }}
+        onVerified={handleVerifiedClose}
+        purpose="account_closure"
+        title="Verify Account Closure"
+        description={`To securely close account ${accountToClose?.account_number || ''} and settle its balance, please enter the one-time code sent to your email.`}
+        actionButtonText="Authorize & Close Account"
+      />
 
     </div>
   );

@@ -10,6 +10,7 @@ import reportRoutes          from './reportRoutes.js';
 import notificationRoutes    from './notificationRoutes.js';
 import dashboardRoutes       from './dashboardRoutes.js';
 import userRoutes           from './userRoutes.js';
+import securityOtpRoutes    from './securityOtpRoutes.js';
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use('/cards',         cardRoutes);
 router.use('/reports',       reportRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/dashboard',     dashboardRoutes);
+router.use('/security/otp',  securityOtpRoutes);
 
 export default router;

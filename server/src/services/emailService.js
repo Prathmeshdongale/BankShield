@@ -126,9 +126,86 @@ export const sendSuperAdminOtpEmail = async (email, otp) => {
   return sendLoginOtpEmail({ email, otp, name: 'Super Admin', role: 'super_admin' });
 };
 
+
+/**
+ * Send Security Action OTP via Email for sensitive operations.
+ */
+export const sendSecurityOtpEmail = async ({
+  email,
+  otp,
+  name = 'User',
+  purpose = 'security_verification',
+  purposeTitle = 'Security Action Verification',
+  purposeDesc = 'A sensitive security operation requires your one-time authorization.',
+}) => {
+  const subject = `[BankShield Security] Verification Code: ${otp} for ${purposeTitle}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BankShield Security Authorization</title>
+</head>
+<body style="margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b1120; color: #f8fafc;">
+  <div style="max-width: 520px; margin: 0 auto; background: #1e293b; border-radius: 16px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);">
+    <div style="background: linear-gradient(135deg, #0284c7, #2563eb); padding: 26px 32px; text-align: center;">
+      <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700;">
+        🛡️ Bank<span style="color: #93c5fd;">Shield</span> Security
+      </h1>
+      <p style="margin: 6px 0 0; color: #bae6fd; font-size: 13px;">High-Security Step-Up Verification</p>
+    </div>
+    
+    <div style="padding: 30px;">
+      <h2 style="margin-top: 0; color: #f8fafc; font-size: 17px; font-weight: 600;">${purposeTitle}</h2>
+      <p style="color: #94a3b8; font-size: 14px; line-height: 1.6;">
+        Hello <strong style="color: #f1f5f9;">${name}</strong>,<br>
+        ${purposeDesc}
+      </p>
+      
+      <p style="color: #cbd5e1; font-size: 14px; margin-bottom: 8px;">Enter the following 6-digit confirmation code:</p>
+      
+      <div style="background: #0f172a; border: 2px dashed #0284c7; border-radius: 12px; padding: 18px; text-align: center; margin: 20px 0;">
+        <span style="font-family: monospace; font-size: 38px; font-weight: 700; letter-spacing: 8px; color: #38bdf8;">${otp}</span>
+      </div>
+      
+      <p style="color: #f59e0b; font-size: 13px; margin: 12px 0 20px; line-height: 1.5;">
+        ⚠️ This security authorization code is valid for <strong>5 minutes</strong>. Never share this code with anyone.
+      </p>
+      
+      <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 0;">
+        If you did not initiate this action, please lock your accounts immediately and alert the BankShield fraud team.
+      </p>
+    </div>
+    
+    <div style="background: #0f172a; padding: 16px 32px; text-align: center; border-top: 1px solid #334155;">
+      <p style="margin: 0; color: #64748b; font-size: 11px;">
+        © ${new Date().getFullYear()} BankShield · Automated Security Protocol · Do not reply
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+  const text = `BankShield Security Code: ${otp}\nPurpose: ${purposeTitle}\n\nValid for 5 minutes. Never share this code.`;
+
+  console.log(
+    `\n================ [SECURITY ACTION OTP SIMULATION] ================\n` +
+    `  To:      ${email}\n` +
+    `  Purpose: ${purposeTitle}\n` +
+    `  OTP:     ${otp}\n` +
+    `  Expires: in 5 minutes\n` +
+    `=================================================================\n`
+  );
+
+  return sendEmail({ to: email, subject, html, text });
+};
+
 export default {
   sendEmail,
   sendLoginOtpEmail,
   sendSuperAdminOtpEmail,
+  sendSecurityOtpEmail,
   getMailTransport,
 };

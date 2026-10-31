@@ -52,6 +52,7 @@ const MyAccountDetail   = lazy(() => import('@/pages/portal/MyAccountDetail'));
 const MyTransactions    = lazy(() => import('@/pages/portal/MyTransactions'));
 const MyCards           = lazy(() => import('@/pages/portal/MyCards'));
 const MyAlerts          = lazy(() => import('@/pages/portal/MyAlerts'));
+const SecurityOtpVerification = lazy(() => import('@/pages/portal/SecurityOtpVerification'));
 
 // ── Branches & Notifications ──────────────────────────────────────────────────
 const Branches       = lazy(() => import('@/pages/branches/Branches'));
@@ -176,6 +177,7 @@ function App() {
                   <Route path="portal/cards/:id"      element={<CardDetail />} />
                   <Route path="portal/transactions"   element={<MyTransactions />} />
                   <Route path="portal/alerts"         element={<MyAlerts />} />
+                  <Route path="portal/security-verification" element={<SecurityOtpVerification />} />
                 </Route>
               </Route>
 

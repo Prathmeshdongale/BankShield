@@ -7,6 +7,7 @@ import { logger } from './utils/logger.js';
 import { initAuthTables }       from './services/authService.js';
 import { initAccountTypes }     from './services/accountService.js';
 import { initTransactionTables } from './services/transactionService.js';
+import { initSecurityOtpTables } from './services/securityOtpService.js';
 
 const PORT = process.env.PORT || 5000;
 
@@ -24,6 +25,11 @@ await initAccountTypes().catch((err) => {
 
 await initTransactionTables().catch((err) => {
   logger.error(`Failed to initialise transaction tables: ${err.message}`);
+  process.exit(1);
+});
+
+await initSecurityOtpTables().catch((err) => {
+  logger.error(`Failed to initialise security OTP tables: ${err.message}`);
   process.exit(1);
 });
 
